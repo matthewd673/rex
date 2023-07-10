@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include "dfa.h"
 
-#define TRANS_CT    256
-
 struct DFAState {
     DFAState *trans;
     char success;
@@ -15,8 +13,9 @@ DFAState new_DFAState() {
         return NULL;
     }
 
-    // TODO: should be mapping of lists
-    new->trans = (DFAState *)malloc(sizeof(DFAState) * TRANS_CT);
+    new->trans = (DFAState *)malloc(sizeof(DFAState) * 256);
+
+    new->success = 0; // not success by default
 
     return new;
 }
@@ -40,7 +39,7 @@ char DFAState_getSuccess(DFAState state) {
 void printTransitions(DFAState state) {
     printf("[");
     int printedTrans = 0; // how many transitions were actually printed?
-    for (int i = 0; i < TRANS_CT; i++) {
+    for (int i = 0; i < 256; i++) {
         // don't print null transitions
         if (state->trans[i] == NULL) {
             continue;
@@ -55,7 +54,7 @@ void printTransitions(DFAState state) {
     printf("]");
 }
 
-void DFAState_print(DFAState state, int depth) {
+void DFAState_print(DFAState state) {
     printf("{\"states\":[");
     // print this and its transitions
     printf("{");

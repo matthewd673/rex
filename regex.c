@@ -34,7 +34,7 @@ RegEx compile(char *expression) {
     DFAState_setSuccess(lastState, 1);
 
     // for debugging:
-    DFAState_print(entry, 0);
+    DFAState_print(entry);
 
     return new_RegEx(entry);
 }
