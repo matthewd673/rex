@@ -33,6 +33,9 @@ RegEx compile(char *expression) {
     // mark last node as success
     DFAState_setSuccess(lastState, 1);
 
+    // for debugging:
+    DFAState_print(entry, 0);
+
     return new_RegEx(entry);
 }
 
