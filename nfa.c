@@ -13,11 +13,11 @@ NFAState new_NFAState() {
         return NULL;
     }
 
-    new->trans = (List *)malloc(sizeof(List) * 256);
+    new->trans = (List *)malloc(sizeof(List) * ALPHABET);
     if (new->trans == NULL) {
         return NULL;
     }
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < ALPHABET; i++) {
         new->trans[i] = new_List();
     }
 

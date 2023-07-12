@@ -63,3 +63,21 @@ void *List_getObject(Node node) {
 Node List_getNext(Node node) {
     return node->next;
 }
+
+int List_contains(List list, void *obj) {
+    Node current = list->head;
+    while (current != NULL) {
+        if (current->obj == obj) {
+            return 1;
+        }
+        current = current->next;
+    }
+    return 0;
+}
+
+int List_empty(List list) {
+    if (list->head == NULL) {
+        return 1;
+    }
+    return 0;
+}

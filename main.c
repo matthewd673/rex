@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include "regex.h"
+#include "stringifier.h"
 
 int main(int argc, char *argv[]) {
     printf("trex - tiny regular expression engine\n");
     RegEx re = compile("abc");
+
+    stringify_NFA(RegEx_getEntry(re));
+
     // printf("Match 'abc'?\t%d\n", match(re, "abc"));
     // printf("Match 'ab'?\t%d\n", match(re, "ab"));
     // printf("Match 'abcd'?\t%d\n", match(re, "abcd"));

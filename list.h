@@ -8,3 +8,5 @@ void List_add(List list, void *obj);
 Node List_getHead(List list);
 void *List_getObject(Node node);
 Node List_getNext(Node node);
+int List_contains(List list, void *obj);
+int List_empty(List list);

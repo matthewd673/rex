@@ -1,5 +1,8 @@
 #include "list.h"
 
+#define EPSILON     0
+#define ALPHABET    128
+
 typedef struct NFAState *NFAState;
 
 NFAState new_NFAState();
