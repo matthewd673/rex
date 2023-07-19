@@ -9,6 +9,7 @@ struct List {
 
 struct Node {
     void *obj;
+    Node prev;
     Node next;
 };
 
@@ -32,6 +33,7 @@ Node new_Node(void *obj) {
     }
 
     new->obj = obj;
+    new->prev = NULL;
     new->next = NULL;
 
     return new;
@@ -48,8 +50,18 @@ void List_add(List list, void *obj) {
 
     // list is not empty, append
     list->tail->next = new_Node(obj);
+    list->tail->next->prev = list->tail;
     list->tail = list->tail->next;
     list->count++;
+}
+
+void List_remove(Node node) {
+    if (node->prev != NULL) {
+        node->prev->next = node->next;
+    }
+    if (node->next != NULL) {
+        node->next->prev = node->prev;
+    }
 }
 
 Node List_getHead(List list) {
@@ -58,6 +70,10 @@ Node List_getHead(List list) {
 
 void *List_getObject(Node node) {
     return node->obj;
+}
+
+Node List_getPrev(Node node) {
+    return node->prev;
 }
 
 Node List_getNext(Node node) {

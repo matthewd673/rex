@@ -73,7 +73,7 @@ void print_NFAState(NFAState state, List visited) {
     }
 
     // print this state
-    printf("{\"id\":%p,\"success\":%s,\"transitions\":[",
+    printf("{\"id\":\"%p\",\"success\":%s,\"transitions\":[",
         state,
         NFAState_getSuccess(state) ? "true" : "false"
         );

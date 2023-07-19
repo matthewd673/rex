@@ -2,7 +2,7 @@
 
 typedef struct RegEx *RegEx;
 
-RegEx compile(char *expression);
+RegEx compile(char *expr);
 
 int match(RegEx re, char *str);
 

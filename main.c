@@ -3,8 +3,8 @@
 #include "stringifier.h"
 
 int main(int argc, char *argv[]) {
-    printf("trex - tiny regular expression engine\n");
-    RegEx re = compile("abc");
+    printf("rex - tiny regular expression engine\n");
+    RegEx re = compile("ab|a");
 
     stringify_NFA(RegEx_getEntry(re));
 

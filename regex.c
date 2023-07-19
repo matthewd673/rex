@@ -9,7 +9,8 @@ struct RegEx {
 typedef struct NFAModule *NFAModule;
 struct NFAModule {
     List exits;
-    NFAState entry;
+    NFAState head;
+    NFAState tail;
 };
 
 RegEx new_RegEx(NFAState entry) {
@@ -30,79 +31,53 @@ NFAModule new_NFAModule() {
     return new;
 }
 
-void connectModules(NFAModule previous, NFAModule next) {
-    Node current = List_getHead(previous->exits);
-    while (current != NULL) {
-        NFAState state = (NFAState)List_getObject(current);
-        NFAState_addTransition(state, next->entry, EPSILON);
-        NFAState_setSuccess(state, 0);  // once connected, exits no longer succeed
-        current = List_getNext(current);
+int toki = -1;
+char tok = -1;
+int escape = 0;
+int eat(char *expr) {
+    if (tok != 0) {
+        toki++;
+        tok = expr[toki];
     }
+    return tok != 0;
 }
 
-void subsumeModuleExits(NFAModule this, NFAModule child) {
-    Node current = List_getHead(child->exits);
-    while (current != NULL) {
-        List_add(this->exits, List_getObject(current));
-        current = List_getNext(current);
-    }
-}
+NFAState parse(char *expr) {
+    // create dummy NFA state to start
+    NFAState head = new_NFAState();
+    NFAState p = head;
 
-NFAModule moduleConcatenation(NFAModule previous, char c) {
-    // create new module and connect it to previous
-    NFAModule this = new_NFAModule();
-    this->entry = new_NFAState();
-    connectModules(previous, this);
-
-    // transition from entry to exit on char
-    NFAState exit = new_NFAState();
-    NFAState_setSuccess(exit, 1); // exit is always assumed to succeed
-    NFAState_addTransition(this->entry, exit, c);
-
-    // add exit to module
-    List_add(this->exits, exit);
-
-    return this;
-}
-
-NFAModule moduleUnion(NFAModule previous, NFAModule left, NFAModule right) {
-    // create new module and connect to previous
-    NFAModule this = new_NFAModule();
-    this->entry = new_NFAState();
-    connectModules(previous, this);
-
-    // create epsilon transitions from entry to branches' entries
-    NFAState_addTransition(this->entry, left->entry, EPSILON);
-    NFAState_addTransition(this->entry, right->entry, EPSILON);
-
-    // make branches' exits our own
-    subsumeModuleExits(this, left);
-    subsumeModuleExits(this, right);
-
-    return this;
-}
-
-// NFAState moduleKClosure(NFAModule closure) {
-//     //
-// }
-
-RegEx compile(char *expression) {
-    int i = 0;
-
-    NFAState entry = new_NFAState();
-    NFAState lastState = entry;
-
-    // TODO: temp, bare minimum
-    while (expression[i] != EPSILON) {
-        // create new state and transition to it
-        NFAState newState = new_NFAState();
-        NFAState_addTransition(lastState, newState, expression[i]);
-        lastState = newState;
-        i++;
+    while (eat(expr)) {
+        // escape
+        if (!escape && tok == '\\') {
+            escape = 1;
+        }
+        // union
+        else if (!escape && tok == '|') {
+            p = head; // reset pointer back to head
+        }
+        // kleene closure
+        else if (!escape && tok == '*') {
+            // TODO
+        }
+        // TODO: parentheses
+        // concatenation
+        else {
+            escape = 0; // stop escaping
+            // add new state after pointer and move pointer to it
+            NFAState new = new_NFAState();
+            NFAState_addTransition(p, new, tok);
+            NFAState_setSuccess(p, 0);
+            p = new;
+            NFAState_setSuccess(p, 1);
+        }
     }
 
-    RegEx this = new_RegEx(entry);
+    return head;
+}
 
+RegEx compile(char *expr) {
+    RegEx this = new_RegEx(parse(expr));
     return this;
 }
 

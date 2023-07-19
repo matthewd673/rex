@@ -1,8 +1,8 @@
-# trex
+# rex
 
 tiny regular expression engine
 
 ```
-gcc *.c -o trex
-./trex
+gcc *.c -o rex
+./rex
 ```
