@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "nfa.h"
+#include "dfa.h"
 #include "regex.h"
 
 struct RegEx {
@@ -8,9 +9,9 @@ struct RegEx {
 
 typedef struct NFAModule *NFAModule;
 struct NFAModule {
-    List exits;
     NFAState head;
     NFAState tail;
+    char code;
 };
 
 RegEx new_RegEx(NFAState entry) {
@@ -26,7 +27,9 @@ RegEx new_RegEx(NFAState entry) {
 NFAModule new_NFAModule() {
     NFAModule new = (NFAModule)malloc(sizeof(struct NFAModule));
 
-    new->exits = new_List();
+    new->head = new_NFAState();
+    new->tail = new_NFAState();
+    new->code = 0;
 
     return new;
 }
@@ -42,10 +45,16 @@ int eat(char *expr) {
     return tok != 0;
 }
 
-NFAState parse(char *expr) {
+/*
+ * parse(char *expr, int depth)
+ *   char *expr: the expression being parsed
+ *   int depth:  the current depth of the parse() calls
+ */
+NFAModule parse(char *expr, int depth) {
     // create dummy NFA state to start
-    NFAState head = new_NFAState();
-    NFAState p = head;
+    NFAModule module = new_NFAModule();
+    NFAState p = module->head;
+    List branches = new_List();
 
     while (eat(expr)) {
         // escape
@@ -54,30 +63,88 @@ NFAState parse(char *expr) {
         }
         // union
         else if (!escape && tok == '|') {
-            p = head; // reset pointer back to head
+            List_add(branches, p); // add pointer state to branches
+            p = module->head; // reset pointer back to head
         }
         // kleene closure
         else if (!escape && tok == '*') {
-            // TODO
+            // make current pointer a branch
+            // however, the head should only be a branch if there are no others
+            if (p != module->head || List_empty(branches)) {
+                List_add(branches, p);
+            }
+            // create an eps transition from every branch to the head
+            Node current = List_getHead(branches);
+            while (current != NULL) {
+                NFAState_addTransition(
+                    List_getObject(current),
+                    module->head,
+                    EPSILON
+                );
+                current = List_getNext(current);
+            }
+            // mark head as success
+            NFAState_setSuccess(module->head, 1);
         }
-        // TODO: parentheses
+        // open group
+        else if (!escape && tok == '(') {
+            NFAModule innerModule = parse(expr, depth + 1);
+            // if inner module failed, we fail
+            if (innerModule->code) {
+                module->code = innerModule->code;
+                return module;
+            }
+            // eps transition to inner module's head from current branch
+            // then set current branch to inner module's tail
+            NFAState_addTransition(p, innerModule->head, EPSILON);
+            p = innerModule->tail;
+        }
+        // close group
+        else if (!escape && tok == ')') {
+            // you can't close the top level group, return with an error
+            if (depth < 1) {;
+                module->code = 1;
+                return module;
+            }
+            // break out of loop and return to caller using logic below
+            break;
+        }
         // concatenation
         else {
             escape = 0; // stop escaping
             // add new state after pointer and move pointer to it
             NFAState new = new_NFAState();
             NFAState_addTransition(p, new, tok);
-            NFAState_setSuccess(p, 0);
             p = new;
-            NFAState_setSuccess(p, 1);
         }
     }
 
-    return head;
+    // no more input, close top-level "group" (same logic as for ')' above)
+    // make current pointer a branch
+    // however, the head should only be a branch if there are no others
+    if (p != module->head || List_empty(branches)) {
+        List_add(branches, p);
+    }
+    // connect all branches to tail
+    Node current = List_getHead(branches);
+    while (current != NULL) {
+        NFAState_addTransition(
+            List_getObject(current),
+            module->tail,
+            EPSILON
+        );
+        current = List_getNext(current);
+    }
+    // mark tail as success if at top level
+    if (depth == 0) {
+        NFAState_setSuccess(module->tail, 1);
+    }
+
+    return module;
 }
 
 RegEx compile(char *expr) {
-    RegEx this = new_RegEx(parse(expr));
+    RegEx this = new_RegEx(parse(expr, 0)->head);
     return this;
 }
 

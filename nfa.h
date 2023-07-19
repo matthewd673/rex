@@ -1,4 +1,5 @@
 #include "list.h"
+#include "dfa.h"
 
 #define EPSILON     0
 #define ALPHABET    128
@@ -12,3 +13,5 @@ List NFAState_getTransitions(NFAState state, char c);
 
 void NFAState_setSuccess(NFAState state, char success);
 char NFAState_getSuccess(NFAState state);
+
+DFAState NFAtoDFA(NFAState entry);

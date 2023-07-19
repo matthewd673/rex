@@ -1,5 +1,4 @@
 #include <stdlib.h>
-
 #include "nfa.h"
 
 struct NFAState {
@@ -40,4 +39,8 @@ void NFAState_setSuccess(NFAState state, char success) {
 
 char NFAState_getSuccess(NFAState state) {
     return state->success;
+}
+
+DFAState NFAtoDFA(NFAState entry) {
+    return NULL; // TODO
 }

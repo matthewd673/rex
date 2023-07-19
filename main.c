@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
     printf("rex - tiny regular expression engine\n");
-    RegEx re = compile("ab|a");
+    RegEx re = compile("(ab|a)*");
 
     stringify_NFA(RegEx_getEntry(re));
 
