@@ -42,5 +42,7 @@ char NFAState_getSuccess(NFAState state) {
 }
 
 DFAState NFAtoDFA(NFAState entry) {
+    List seen = new_List();
+
     return NULL; // TODO
 }
