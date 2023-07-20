@@ -2,7 +2,6 @@
 #include "list.h"
 
 struct List {
-    int count;
     Node head;
     Node tail;
 };
@@ -19,11 +18,21 @@ List new_List() {
         return NULL;
     }
 
-    new->count = 0;
     new->head = NULL;
     new->tail = NULL;
 
     return new;
+}
+
+List free_List(List list) {
+    // move through list freeing nodes (their objects are not freed)
+    Node current = list->head;
+    while (current != NULL) {
+        Node next = current->next;
+        free(current);
+        current = next;
+    }
+    free(list);
 }
 
 Node new_Node(void *obj) {
@@ -44,7 +53,6 @@ void List_add(List list, void *obj) {
     if (list->tail == NULL) { // (head == NULL) == (tail == NULL)
         list->head = new_Node(obj);
         list->tail = list->head;
-        list->count = 1;
         return;
     }
 
@@ -52,7 +60,14 @@ void List_add(List list, void *obj) {
     list->tail->next = new_Node(obj);
     list->tail->next->prev = list->tail;
     list->tail = list->tail->next;
-    list->count++;
+}
+
+void List_addUnique(List list, void *obj) {
+    if (List_contains(list, obj)) {
+        return;
+    }
+
+    List_add(list, obj);
 }
 
 void List_remove(Node node) {

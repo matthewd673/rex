@@ -4,7 +4,7 @@
 #include "regex.h"
 
 struct RegEx {
-    NFAState entry;
+    DFAState entry;
 };
 
 typedef struct NFAModule *NFAModule;
@@ -14,7 +14,7 @@ struct NFAModule {
     char code;
 };
 
-RegEx new_RegEx(NFAState entry) {
+RegEx new_RegEx(DFAState entry) {
     RegEx new = (RegEx)malloc(sizeof(struct RegEx));
     if (new == NULL) {
         return NULL;
@@ -34,9 +34,15 @@ NFAModule new_NFAModule() {
     return new;
 }
 
-int toki = -1;
-char tok = -1;
-int escape = 0;
+void free_NFAModule(NFAModule module) {
+    free(module);
+}
+
+// parse() helpers
+// these are reset when compilation begins
+int toki;
+char tok;
+int escape;
 int eat(char *expr) {
     if (tok != 0) {
         toki++;
@@ -92,12 +98,14 @@ NFAModule parse(char *expr, int depth) {
             // if inner module failed, we fail
             if (innerModule->code) {
                 module->code = innerModule->code;
+                free_NFAModule(innerModule);
                 return module;
             }
             // eps transition to inner module's head from current branch
             // then set current branch to inner module's tail
             NFAState_addTransition(p, innerModule->head, EPSILON);
             p = innerModule->tail;
+            free_NFAModule(innerModule);
         }
         // close group
         else if (!escape && tok == ')') {
@@ -144,8 +152,20 @@ NFAModule parse(char *expr, int depth) {
 }
 
 RegEx compile(char *expr) {
-    RegEx this = new_RegEx(parse(expr, 0)->head);
-    return this;
+    toki = -1;
+    tok = -1;
+    escape = 0;
+
+    // try parse string into NFA
+    NFAModule module = parse(expr, 0);
+    if (module->code) {
+        return NULL;
+    }
+
+    // convert NFA to DFA
+    DFAState entry = NFAtoDFA(module->head);
+
+    return new_RegEx(entry);
 }
 
 int match(RegEx re, char *str) {

@@ -6,7 +6,7 @@ int main(int argc, char *argv[]) {
     printf("rex - tiny regular expression engine\n");
     RegEx re = compile("(ab|a)*");
 
-    stringify_NFA(RegEx_getEntry(re));
+    stringify_DFA(RegEx_getEntry(re));
 
     // printf("Match 'abc'?\t%d\n", match(re, "abc"));
     // printf("Match 'ab'?\t%d\n", match(re, "ab"));
