@@ -4,12 +4,14 @@
 struct List {
     Node head;
     Node tail;
+    int count;
 };
 
 struct Node {
     void *obj;
     Node prev;
     Node next;
+    List list;
 };
 
 List new_List() {
@@ -20,6 +22,7 @@ List new_List() {
 
     new->head = NULL;
     new->tail = NULL;
+    new->count = 0;
 
     return new;
 }
@@ -35,7 +38,7 @@ List free_List(List list) {
     free(list);
 }
 
-Node new_Node(void *obj) {
+Node new_Node(List list, void *obj) {
     Node new = (Node)malloc(sizeof(struct Node));
     if (new == NULL) {
         return NULL;
@@ -44,6 +47,7 @@ Node new_Node(void *obj) {
     new->obj = obj;
     new->prev = NULL;
     new->next = NULL;
+    new->list = list;
 
     return new;
 }
@@ -51,15 +55,17 @@ Node new_Node(void *obj) {
 void List_add(List list, void *obj) {
     // list is empty, create head & tail
     if (list->tail == NULL) { // (head == NULL) == (tail == NULL)
-        list->head = new_Node(obj);
+        list->head = new_Node(list, obj);
         list->tail = list->head;
+        list->count++;
         return;
     }
 
     // list is not empty, append
-    list->tail->next = new_Node(obj);
+    list->tail->next = new_Node(list, obj);
     list->tail->next->prev = list->tail;
     list->tail = list->tail->next;
+    list->count++;
 }
 
 void List_addUnique(List list, void *obj) {
@@ -70,7 +76,12 @@ void List_addUnique(List list, void *obj) {
     List_add(list, obj);
 }
 
-void List_remove(Node node) {
+void List_remove(List list, Node node) {
+    if (node->list != list) {
+        return;
+    }
+
+    list->count--; // TODO: in edge cases this may be inaccurate
     if (node->prev != NULL) {
         node->prev->next = node->next;
     }
@@ -107,8 +118,31 @@ int List_contains(List list, void *obj) {
 }
 
 int List_empty(List list) {
-    if (list->head == NULL) {
-        return 1;
+    return list->count == 0;
+}
+
+int List_equals(List a, List b) {
+    if (a->count != b->count) {
+        return 0;
     }
-    return 0;
+
+    Node aNode = a->head;
+    Node bNode;
+    while (aNode != NULL) {
+        // for every node in A, search through B
+        bNode = b->head;
+        while (bNode != NULL) {
+            if (bNode == aNode) {
+                break;
+            }
+            bNode = bNode->next;
+        }
+        // if we reach the end of B without matching they are different
+        if (bNode == NULL) {
+            return 0;
+        }
+        aNode = aNode->next;
+    }
+
+    return 1;
 }
