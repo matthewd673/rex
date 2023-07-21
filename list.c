@@ -27,7 +27,7 @@ List new_List() {
     return new;
 }
 
-List free_List(List list) {
+void free_List(List list) {
     // move through list freeing nodes (their objects are not freed)
     Node current = list->head;
     while (current != NULL) {
@@ -94,6 +94,10 @@ Node List_getHead(List list) {
     return list->head;
 }
 
+int List_getCount(List list) {
+    return list->count;
+}
+
 void *List_getObject(Node node) {
     return node->obj;
 }
@@ -132,7 +136,7 @@ int List_equals(List a, List b) {
         // for every node in A, search through B
         bNode = b->head;
         while (bNode != NULL) {
-            if (bNode == aNode) {
+            if (bNode->obj == aNode->obj) {
                 break;
             }
             bNode = bNode->next;
