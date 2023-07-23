@@ -1,9 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "dfa.h"
+#include "nfa.h"
 
 struct DFAState {
     DFAState *trans;
+    char *hasTrans;
+    List tag;
     char success;
 };
 
@@ -13,8 +16,12 @@ DFAState new_DFAState() {
         return NULL;
     }
 
-    new->trans = (DFAState *)malloc(sizeof(DFAState) * 256);
-
+    new->trans = (DFAState *)malloc(sizeof(DFAState) * ALPHABET);
+    new->hasTrans = (char *)malloc(sizeof(char) * ALPHABET);
+    for (int i = 0; i < ALPHABET; i++) {
+        new->hasTrans[i] = 0;
+    }
+    new->tag = new_List();
     new->success = 0; // not success by default
 
     return new;
@@ -22,10 +29,23 @@ DFAState new_DFAState() {
 
 void DFAState_addTransition(DFAState src, DFAState dst, char c) {
     src->trans[c] = dst;
+    src->hasTrans[c] = 1;
 }
 
 DFAState DFAState_getTransition(DFAState state, char c) {
     return state->trans[c];
+}
+
+int DFAState_hasTransition(DFAState state, char c) {
+    return state->hasTrans[c];
+}
+
+void DFAState_setTag(DFAState state, List tag) {
+    state->tag = tag;
+}
+
+List DFAState_getTag(DFAState state) {
+    return state->tag;
 }
 
 void DFAState_setSuccess(DFAState state, char success) {
@@ -34,33 +54,4 @@ void DFAState_setSuccess(DFAState state, char success) {
 
 char DFAState_getSuccess(DFAState state) {
     return state->success;
-}
-
-void printTransitions(DFAState state) {
-    printf("[");
-    int printedTrans = 0; // how many transitions were actually printed?
-    for (int i = 0; i < 256; i++) {
-        // don't print null transitions
-        if (state->trans[i] == NULL) {
-            continue;
-        }
-
-        if (printedTrans > 0) {
-            printf(",");
-        }
-        printf("{\"character\":%d,\"states\":[\"%p\"]}", i, state->trans[i]);
-        printedTrans++;
-    }
-    printf("]");
-}
-
-void DFAState_print(DFAState state) {
-    printf("{\"states\":[");
-    // print this and its transitions
-    printf("{");
-    printf("\"id\":\"%p\",\"transitions\":", state);
-    printTransitions(state);
-    printf("}");
-    // TODO: print other states
-    printf("]}\n");
 }

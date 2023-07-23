@@ -103,3 +103,90 @@ void stringify_NFA(NFAState entry) {
     // close it off
     printf("]}\n");
 }
+
+void print_DFAStateTransitions(DFAState state) {
+    int printedTransitions = 0;
+    for (int i = 0; i < ALPHABET; i++) {
+        // if there is no transition on this character, skip
+        if (!DFAState_hasTransition(state, i)) {
+            continue;
+        }
+
+        DFAState transition = DFAState_getTransition(state, i);
+
+        // print leading comma if not first in list
+        if (printedTransitions > 0) {
+            printf(",");
+        }
+
+        // begin printing transition
+        printf("{\"character\":%d,\"state\":", i);
+
+        // print transition state
+        printf("\"%p\"", transition);
+
+        // close it off
+        printf("}");
+        printedTransitions++;
+    }
+}
+
+void print_DFAStateTag(DFAState state) {
+    Node current = List_getHead(DFAState_getTag(state));
+    int printedTag = 0;
+    while (current != NULL) {
+        if (printedTag) {
+            printf(",");
+        }
+        printf("\"%p\"", List_getObject(current));
+        printedTag = 1;
+        current = List_getNext(current);
+    }
+}
+
+void print_DFAState(DFAState state, List visited) {
+    // don't print states that have already been traversed
+    if (List_contains(visited, state)) {
+        return;
+    }
+
+    // if another state has been visted (therefore printed), print leading comma
+    if (!List_empty(visited)) {
+        printf(",");
+    }
+
+    // print this state
+    printf("{\"id\":\"%p\",\"success\":%s,",
+        state,
+        DFAState_getSuccess(state) ? "true" : "false");
+
+    printf("\"tag\":[");
+    print_DFAStateTag(state);
+    printf("],");
+
+    printf("\"transitions\":[");
+    print_DFAStateTransitions(state);
+    printf("]}");
+
+    // mark this state as visited
+    List_add(visited, state);
+
+    // recursively print all subsequent states
+    for (int i = 0; i < ALPHABET; i++) {
+        if (!DFAState_hasTransition(state, i)) {
+            continue;
+        }
+        print_DFAState(DFAState_getTransition(state, i), visited);
+    }
+}
+
+void stringify_DFA(DFAState entry) {
+    // begin printing
+    printf("{\"states\":[");
+
+    // start printing at entry point
+    print_DFAState(entry, new_List());
+
+    // close it off
+    printf("]}\n");
+}
