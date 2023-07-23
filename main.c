@@ -8,9 +8,11 @@ int main(int argc, char *argv[]) {
 
     stringify_DFA(RegEx_getEntry(re));
 
-    // printf("Match 'abc'?\t%d\n", match(re, "abc"));
-    // printf("Match 'ab'?\t%d\n", match(re, "ab"));
-    // printf("Match 'abcd'?\t%d\n", match(re, "abcd"));
-    // printf("Match '0abc'?\t%d\n", match(re, "0abc"));
-    // printf("Match 'ganbddc\t%d\n", match(re, "ganbddc"));
+    printf("Match 'aba'?\t\t%d\n", match(re, "aba"));
+    printf("Match 'no'?\t\t%d\n", match(re, "no"));
+    printf("Match 'bababa'?\t\t%d\n", match(re, "bababa"));
+    printf("Match 'abababa'?\t%d\n", match(re, "abababa"));
+    printf("Match ''?\t\t%d\n", match(re, ""));
+    printf("Match 'axxbxaba'?\t%d\n", match(re, "axxbxaba"));
+    printf("Match 'aaaab'?\t\t%d\n", match(re, "aaaab"));
 }

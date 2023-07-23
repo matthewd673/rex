@@ -171,17 +171,23 @@ RegEx compile(char *expr) {
 }
 
 int match(RegEx re, char *str) {
-    // int i = 0;
-    // DFAState current = re->entry;
-    // while (str[i] != 0) {
-    //     DFAState next = DFAState_getTransition(current, str[i]);
-    //     if (next != NULL) {
-    //         current = next;
-    //     }
-    //     i++;
-    // }
-    // return DFAState_getSuccess(current);
-    return 1;
+    DFAState state = re->entry;
+
+    // consume every character in string
+    int i = 0;
+    while (str[i] != 0) {
+        // if state cannot transition on this character, fail
+        if (!DFAState_hasTransition(state, str[i])) {
+            return 0;
+        }
+
+        // move to appropriate state and continue reading input
+        state = DFAState_getTransition(state, str[i]);
+        i++;
+    }
+
+    // reached end of string, are we in a success state?
+    return DFAState_getSuccess(state);
 }
 
 DFAState RegEx_getEntry(RegEx re) {
