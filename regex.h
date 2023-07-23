@@ -1,4 +1,4 @@
-#include "nfa.h"
+#include "dfa.h"
 
 typedef struct RegEx *RegEx;
 
@@ -6,4 +6,4 @@ RegEx compile(char *expr);
 
 int match(RegEx re, char *str);
 
-NFAState RegEx_getEntry(RegEx re);
+DFAState RegEx_getEntry(RegEx re);

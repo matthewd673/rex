@@ -2,6 +2,7 @@
 #include "nfa.h"
 #include "dfa.h"
 #include "regex.h"
+#include "stringifier.h"
 
 struct RegEx {
     DFAState entry;
@@ -163,6 +164,7 @@ RegEx compile(char *expr) {
     }
 
     // convert NFA to DFA
+    stringify_NFA(module->head);
     DFAState entry = NFAtoDFA(module->head);
 
     return new_RegEx(entry);
@@ -182,6 +184,6 @@ int match(RegEx re, char *str) {
     return 1;
 }
 
-NFAState RegEx_getEntry(RegEx re) {
+DFAState RegEx_getEntry(RegEx re) {
     return re->entry;
 }
