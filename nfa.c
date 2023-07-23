@@ -26,6 +26,14 @@ NFAState new_NFAState() {
     return new;
 }
 
+void free_NFAState(NFAState state) {
+    for (int i = 0; i < ALPHABET; i++) {
+        free_List(state->trans[i]);
+    }
+    free(state->trans);
+    free(state);
+}
+
 void NFAState_addTransition(NFAState src, NFAState dst, char c) {
     List_add(src->trans[c], dst);
 }
@@ -45,6 +53,7 @@ char NFAState_getSuccess(NFAState state) {
 // convert() helpers
 // these are reset when conversion begins
 List dfaStates;
+List taggedNfaStates;
 
 void convert(DFAState state) {
     printf("\nBegin convert on %p\n", state);
@@ -58,6 +67,7 @@ void convert(DFAState state) {
         Node dst = List_getHead(NFAState_getTransitions(tagState, EPSILON));
         while (dst != NULL) {
             List_addUnique(DFAState_getTag(state), List_getObject(dst));
+            List_addUnique(taggedNfaStates, List_getObject(dst)); // keep track
             dst = List_getNext(dst);
         }
         tagged = List_getNext(tagged);
@@ -194,16 +204,35 @@ void convert(DFAState state) {
     }
 }
 
-DFAState NFAtoDFA(NFAState entry) {
+void freeAllTags() {
+    // free all NFAStates that are tagged
+    Node current = List_getHead(taggedNfaStates);
+    while (current != NULL) {
+        free_NFAState(List_getObject(current));
+        current = List_getNext(current);
+    }
+
+    // free all tag lists
+    current = List_getHead(dfaStates);
+    while (current != NULL) {
+        free_List(DFAState_getTag(List_getObject(current)));
+        current = List_getNext(current);
+    }
+}
+
+List NFAtoDFA(NFAState entry) {
     dfaStates = new_List();
+    taggedNfaStates = new_List();
 
     // create DFA entry tagged with NFA entry
     DFAState dfaEntry = new_DFAState();
     List_addUnique(DFAState_getTag(dfaEntry), entry);
+    List_addUnique(taggedNfaStates, entry); // keep track
     // List_add(dfaStates, dfaEntry);
     convert(dfaEntry); // start the process...
 
-    free_List(dfaStates);
+    freeAllTags();
+    free_List(taggedNfaStates);
 
-    return dfaEntry;
+    return dfaStates;
 }

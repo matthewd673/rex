@@ -15,4 +15,6 @@ int main(int argc, char *argv[]) {
     printf("Match ''?\t\t%d\n", match(re, ""));
     printf("Match 'axxbxaba'?\t%d\n", match(re, "axxbxaba"));
     printf("Match 'aaaab'?\t\t%d\n", match(re, "aaaab"));
+
+    free_RegEx(re);
 }

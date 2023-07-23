@@ -6,6 +6,7 @@
 
 struct RegEx {
     DFAState entry;
+    List dfaStates;
 };
 
 typedef struct NFAModule *NFAModule;
@@ -15,14 +16,25 @@ struct NFAModule {
     char code;
 };
 
-RegEx new_RegEx(DFAState entry) {
+RegEx new_RegEx(DFAState entry, List dfaStates) {
     RegEx new = (RegEx)malloc(sizeof(struct RegEx));
     if (new == NULL) {
         return NULL;
     }
 
     new->entry = entry;
+    new->dfaStates = dfaStates;
     return new;
+}
+
+void free_RegEx(RegEx re) {
+    Node current = List_getHead(re->dfaStates);
+    while (current != NULL) {
+        free_DFAState(List_getObject(current));
+        current = List_getNext(current);
+    }
+    free_List(re->dfaStates);
+    free(re);
 }
 
 NFAModule new_NFAModule() {
@@ -165,9 +177,18 @@ RegEx compile(char *expr) {
 
     // convert NFA to DFA
     stringify_NFA(module->head);
-    DFAState entry = NFAtoDFA(module->head);
+    List dfaStates = NFAtoDFA(module->head);
 
-    return new_RegEx(entry);
+    // first object in list of dfastates is the entrypoint
+    Node entryNode = List_getHead(dfaStates);
+    DFAState entry;
+    if (entryNode != NULL) {
+        entry = List_getObject(entryNode);
+    }
+
+    free_NFAModule(module);
+
+    return new_RegEx(entry, dfaStates);
 }
 
 int match(RegEx re, char *str) {

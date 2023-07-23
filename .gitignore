@@ -1,3 +1,6 @@
 # output
 rex
 trex
+
+# debugging
+rex.dSYM/

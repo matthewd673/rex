@@ -27,6 +27,12 @@ DFAState new_DFAState() {
     return new;
 }
 
+void free_DFAState(DFAState state) {
+    free(state->trans);
+    free(state->hasTrans);
+    free(state);
+}
+
 void DFAState_addTransition(DFAState src, DFAState dst, char c) {
     src->trans[c] = dst;
     src->hasTrans[c] = 1;
