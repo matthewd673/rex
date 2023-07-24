@@ -161,6 +161,9 @@ NFAModule parse(char *expr, int depth) {
         NFAState_setSuccess(module->tail, 1);
     }
 
+    // cleanup branches
+    free_List(branches);
+
     return module;
 }
 
@@ -172,6 +175,7 @@ RegEx compile(char *expr) {
     // try parse string into NFA
     NFAModule module = parse(expr, 0);
     if (module->code) {
+        free_NFAModule(module);
         return NULL;
     }
 

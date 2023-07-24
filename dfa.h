@@ -4,6 +4,7 @@ typedef struct DFAState *DFAState;
 
 DFAState new_DFAState();
 void free_DFAState(DFAState state);
+void DFAState_manuallyFreeTag(DFAState state);
 
 void DFAState_addTransition(DFAState src, DFAState dst, char c);
 DFAState DFAState_getTransition(DFAState state, char c);

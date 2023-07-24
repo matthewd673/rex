@@ -98,7 +98,9 @@ void stringify_NFA(NFAState entry) {
     printf("{\"states\":[");
 
     // start printing at entry point
-    print_NFAState(entry, new_List());
+    List visited = new_List();
+    print_NFAState(entry, visited);
+    free_List(visited);
 
     // close it off
     printf("]}\n");
@@ -185,7 +187,9 @@ void stringify_DFA(DFAState entry) {
     printf("{\"states\":[");
 
     // start printing at entry point
-    print_DFAState(entry, new_List());
+    List visited = new_List();
+    print_DFAState(entry, visited);
+    free_List(visited);
 
     // close it off
     printf("]}\n");

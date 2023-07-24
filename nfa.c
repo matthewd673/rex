@@ -104,6 +104,8 @@ void convert(DFAState state) {
                 DFAState_getTag(List_getObject(existing))
             )) {
             printf("This state's tag matches an existing one, stopping\n");
+            DFAState_manuallyFreeTag(state);
+            free_DFAState(state);
             return;
         }
         existing = List_getNext(existing);
@@ -139,6 +141,7 @@ void convert(DFAState state) {
             Node dst = List_getHead(NFAState_getTransitions(tagState, i));
             while (dst != NULL) {
                 List_addUnique(destinations[i], List_getObject(dst));
+                List_addUnique(taggedNfaStates, List_getObject(dst)); // keep track
                 dst = List_getNext(dst);
             }
 
@@ -160,6 +163,7 @@ void convert(DFAState state) {
             Node dst = List_getHead(NFAState_getTransitions(destState, EPSILON));
             while (dst != NULL) {
                 List_addUnique(destinations[i], List_getObject(dst));
+                List_addUnique(taggedNfaStates, List_getObject(dst)); // keep track
                 dst = List_getNext(dst);
             }
             dests = List_getNext(dests);
@@ -180,6 +184,9 @@ void convert(DFAState state) {
             // if we found a match
             if (List_equals(destinations[i], DFAState_getTag(existingState))) {
                 printf("Destinations match an existing state's tag\n");
+
+                free_List(destinations[i]);
+
                 dst = existingState;
                 dstUnique = 0;
                 break;
@@ -191,17 +198,18 @@ void convert(DFAState state) {
         if (dstUnique) {
             printf("Destinations are unique (%d states checked), a new state will be created\n", checked);
             dst = new_DFAState();
+            DFAState_manuallyFreeTag(dst);
             DFAState_setTag(dst, destinations[i]);
+
+            // continue building...
+            convert(dst);
         }
         // transition to destination state
         printf("Creating transition to destination tag\n");
         DFAState_addTransition(state, dst, i);
-
-        // continue building...
-        if (dstUnique) {
-            convert(dst);
-        }
     }
+
+    free(destinations);
 }
 
 void freeAllTags() {
@@ -218,6 +226,8 @@ void freeAllTags() {
         free_List(DFAState_getTag(List_getObject(current)));
         current = List_getNext(current);
     }
+
+    free_List(taggedNfaStates);
 }
 
 List NFAtoDFA(NFAState entry) {
@@ -232,7 +242,6 @@ List NFAtoDFA(NFAState entry) {
     convert(dfaEntry); // start the process...
 
     freeAllTags();
-    free_List(taggedNfaStates);
 
     return dfaStates;
 }

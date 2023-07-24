@@ -33,6 +33,10 @@ void free_DFAState(DFAState state) {
     free(state);
 }
 
+void DFAState_manuallyFreeTag(DFAState state) {
+    free_List(state->tag);
+}
+
 void DFAState_addTransition(DFAState src, DFAState dst, char c) {
     src->trans[c] = dst;
     src->hasTrans[c] = 1;
