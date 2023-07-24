@@ -56,8 +56,6 @@ List dfaStates;
 List taggedNfaStates;
 
 void convert(DFAState state) {
-    printf("\nBegin convert on %p\n", state);
-    printf("%d DFAStates exist\n", List_getCount(dfaStates));
     // add all possible epsilon destinations to this tag
     // for every NFAState in tag...
     Node tagged = List_getHead(DFAState_getTag(state));
@@ -72,9 +70,6 @@ void convert(DFAState state) {
         }
         tagged = List_getNext(tagged);
     }
-    printf("%d tags after adding epsilon destinations\n",
-        List_getCount(DFAState_getTag(state))
-    );
 
     // mark this state as a success if any tagged states are successes
     tagged = List_getHead(DFAState_getTag(state));
@@ -82,17 +77,9 @@ void convert(DFAState state) {
         // found a success, mark and stop
         if (NFAState_getSuccess(List_getObject(tagged))) {
             DFAState_setSuccess(state, 1);
-            printf("Tags contain success state so this DFA state is a success\n");
             break;
         }
 
-        tagged = List_getNext(tagged);
-    }
-
-    // TODO: block is purely debug
-    tagged = List_getHead(DFAState_getTag(state));
-    while (tagged != NULL) {
-        printf("\t%p is tagged\n", List_getObject(tagged));
         tagged = List_getNext(tagged);
     }
 
@@ -103,7 +90,6 @@ void convert(DFAState state) {
                 DFAState_getTag(state),
                 DFAState_getTag(List_getObject(existing))
             )) {
-            printf("This state's tag matches an existing one, stopping\n");
             DFAState_manuallyFreeTag(state);
             free_DFAState(state);
             return;
@@ -111,12 +97,9 @@ void convert(DFAState state) {
         existing = List_getNext(existing);
     }
 
-    printf("This state's tag is unique, it will be added to the master list\n");
-
     // log as an existing state
     List_add(dfaStates, state);
 
-    printf("Creating transitions\n");
     // create all transitions
     List *destinations = (List *)malloc(sizeof(List) * ALPHABET);
     // for every letter in ALPHABET (except EPSILON)...
@@ -130,8 +113,6 @@ void convert(DFAState state) {
                 tagged = List_getNext(tagged);
                 continue;
             }
-
-            printf("Found transitions from %p on '%d'\n", tagState, i);
 
             // if this transition hasn't been taken yet
             if (destinations[i] == NULL) {
@@ -168,9 +149,6 @@ void convert(DFAState state) {
             }
             dests = List_getNext(dests);
         }
-        printf("%d destinations after adding epsilon destinations\n",
-            List_getCount(destinations[i])
-        );
 
         // check if this destination list matches an existing DFAState's tag
         // if it does, that DFAState will be set as the destination
@@ -183,8 +161,6 @@ void convert(DFAState state) {
             checked++;
             // if we found a match
             if (List_equals(destinations[i], DFAState_getTag(existingState))) {
-                printf("Destinations match an existing state's tag\n");
-
                 free_List(destinations[i]);
 
                 dst = existingState;
@@ -196,7 +172,6 @@ void convert(DFAState state) {
         }
         // no match was found, create a new state and transition to it
         if (dstUnique) {
-            printf("Destinations are unique (%d states checked), a new state will be created\n", checked);
             dst = new_DFAState();
             DFAState_manuallyFreeTag(dst);
             DFAState_setTag(dst, destinations[i]);
@@ -205,7 +180,6 @@ void convert(DFAState state) {
             convert(dst);
         }
         // transition to destination state
-        printf("Creating transition to destination tag\n");
         DFAState_addTransition(state, dst, i);
     }
 

@@ -180,7 +180,6 @@ RegEx compile(char *expr) {
     }
 
     // convert NFA to DFA
-    stringify_NFA(module->head);
     List dfaStates = NFAtoDFA(module->head);
 
     // first object in list of dfastates is the entrypoint
