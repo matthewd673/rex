@@ -9,7 +9,7 @@ gcc *.c -o rex
 
 ## Example
 ```c
-#include <stdio>
+#include <stdio.h>
 #include "regex.h"
 
 int main() {
