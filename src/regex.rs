@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::str::Chars;
 
 const START_STATE: usize = 0;
 const EPSILON: char = '\0';
@@ -38,9 +37,9 @@ impl NFA {
     };
   }
 
-  fn count(&mut self) -> usize {
-    return self.states.len();
-  }
+  // fn count(&mut self) -> usize {
+    // return self.states.len();
+  // }
 
   // fn create_state(&mut self) -> usize {
     // let new = State::new(self.count());
@@ -57,15 +56,7 @@ impl NFA {
   // }
 }
 
-struct ParseResult {
-  head: usize,
-  tail: usize,
-  success: bool,
-}
-
 fn compile(expr: &str) -> NFA {
-  let escape = false;
-
   let mut nfa = NFA::new();
 
   // TODO: temp
@@ -110,8 +101,8 @@ impl RegEx {
         // println!("  {}", s);
       // }
 
-      let c = chars.next();
-      match c {
+      let next_char = chars.next();
+      match next_char {
         // read the next character
         Some(c) => {
           // println!("looking at {}", c);
