@@ -18,6 +18,6 @@ fn main() {
     // println!("{:?}: '{}'", t.t_type, t.image);
   // }
 
-  let mut compiler = compiler::Compiler::new(String::from("/(ab|a)*/"));
+  let mut compiler = compiler::Compiler::new(String::from("/(ab|a)*xyz*/"));
   compiler.compile();
 }
