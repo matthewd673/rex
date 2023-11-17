@@ -1,3 +1,4 @@
+mod nfa;
 mod regex;
 mod compiler;
 
@@ -17,5 +18,6 @@ fn main() {
     // println!("{:?}: '{}'", t.t_type, t.image);
   // }
 
-  let compiler = compiler::Compiler::new(String::from("(ab|a)*"));
+  let mut compiler = compiler::Compiler::new(String::from("/(ab|a)*/"));
+  compiler.compile();
 }

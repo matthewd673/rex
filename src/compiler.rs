@@ -1,8 +1,10 @@
-use std::collections::VecDeque;
+use crate::nfa::NFA;
+use crate::nfa::State;
 
 #[derive(Debug)]
 pub enum TokenType {
   Error,
+  Slash,
   Character,
   Union,
   Star,
@@ -17,12 +19,8 @@ pub struct Token {
 }
 
 impl Token {
-  fn new_Error() -> Self {
-    return Token { t_type: TokenType::Error, image: '\0' };
-  }
-
-  fn new_EOF() -> Self {
-    return Token { t_type: TokenType::EOF, image: '\0' };
+  fn new(t_type: TokenType) -> Self {
+    return Token { t_type, image: '\0' };
   }
 }
 
@@ -38,29 +36,10 @@ impl Scanner {
     return Scanner { chars, index: 0usize };
   }
 
-  // pub fn scan(&self) -> VecDeque<Token> {
-    // let mut tokens = VecDeque::new();
-
-    // tokenize all chars in the string
-    // let mut chars = self.input.chars();
-    // loop {
-      // let next_char = chars.next();
-      // match next_char {
-        // Some(c) => { tokens.push_back(char_to_token(c)); },
-        // None => { break; },
-      // }
-    // }
-
-    // // always finish with EOF
-    // tokens.push_back(Token { t_type: TokenType::EOF, image: '\0' });
-
-    // return tokens;
-  // }
-
   fn scan_next(&mut self) -> Token {
     let t = match self.chars.get(self.index) {
       Some(c) => char_to_token(*c),
-      None => Token::new_EOF(),
+      None => Token::new(TokenType::EOF),
     };
 
     self.index += 1;
@@ -72,6 +51,7 @@ impl Scanner {
 // TODO: escaping
 fn char_to_token(c: char) -> Token {
   match c {
+    '/' => Token { t_type: TokenType::Slash, image: c },
     '|' => Token { t_type: TokenType::Union, image: c },
     '*' => Token { t_type: TokenType::Star, image: c },
     '(' => Token { t_type: TokenType::LParen, image: c },
@@ -80,16 +60,48 @@ fn char_to_token(c: char) -> Token {
   }
 }
 
+struct NFAModule {
+  heads: Vec<State>,
+  tails: Vec<State>,
+}
+
+enum NodeType {
+  Error,
+  Expression,
+  Character,
+  Group,
+  Union,
+  Star,
+  End,
+}
+
+struct TreeNode {
+  n_type: NodeType,
+  image: char,
+  children: Vec<TreeNode>,
+}
+
+impl TreeNode {
+  fn new(n_type: NodeType) -> Self {
+    return TreeNode { n_type, image: '\0', children: vec![] };
+  }
+}
+
 struct Parser {
   scanner: Scanner,
   next_token: Token,
+  nfa: NFA,
 }
 
 impl Parser {
   fn new(input: String) -> Self {
     let scanner = Scanner::new(input);
 
-    return Parser { scanner, next_token: Token::new_Error() };
+    return Parser {
+      scanner,
+      next_token: Token::new(TokenType::Error),
+      nfa: NFA::new(),
+    };
   }
 
   fn eat(&mut self, expected: TokenType) {
@@ -109,70 +121,105 @@ impl Parser {
   }
 
   fn parse(&mut self) {
+    // point to first character
     self.next_token = self.scanner.scan_next();
     self.parse_expr();
   }
 
   fn parse_expr(&mut self) {
     match self.next_token.t_type {
-      TokenType::Character => {
-        println!("expr -> C ET");
-        self.parse_char();
-        self.parse_expr_tail();
+      TokenType::Slash => {
+        println!("expr -> / concat /");
+        self.eat(TokenType::Slash);
+        self.parse_concat();
+        self.eat(TokenType::Slash);
       },
-      TokenType::LParen => {
-        println!("expr -> ( E ) ET");
-        self.eat(TokenType::LParen);
-        self.parse_char();
-        self.eat(TokenType::RParen);
-        self.parse_expr_tail();
-      }
       _ => {
         println!("syntax error: while parsing expr");
       },
     }
   }
 
-  fn parse_expr_tail(&mut self) {
+  fn parse_concat(&mut self) {
     match self.next_token.t_type {
-      TokenType::Character | TokenType::LParen => {
-        println!("expr_tail -> E ET");
-        self.parse_expr();
-        self.parse_expr_tail();
+      TokenType::Character => {
+        println!("concat -> char star concat_tail");
+        self.eat(TokenType::Character);
+        self.parse_star();
+        self.parse_concat_tail();
       },
-      TokenType::Union => {
-        println!("expr_tail -> | ET");
-        self.eat(TokenType::Union);
-        self.parse_expr_tail();
-      },
-      TokenType::Star => {
-        println!("expr_tail -> * ET");
-        self.eat(TokenType::Star);
-        self.parse_expr_tail();
-      },
-      TokenType::RParen | TokenType::EOF => {
-        println!("expr_tail -> ε");
+      TokenType::LParen => {
+        println!("concat -> group star concat_tail");
+        self.parse_group();
+        self.parse_star();
+        self.parse_concat_tail();
       },
       _ => {
-        println!("syntax error: while parsing expr_tail");
+        println!("syntax error: while parsing concat");
       },
     }
   }
 
-  fn parse_char(&mut self) {
-    // TODO: formalize into match
-    self.eat(TokenType::Character);
-    self.parse_char_tail();
-  }
-
-  fn parse_char_tail(&self) {
+  fn parse_concat_tail(&mut self) {
     match self.next_token.t_type {
-      TokenType::Character | TokenType::RParen | TokenType::Union |
-      TokenType::Star | TokenType::EOF => {
+      TokenType::Character => {
+        println!("concat_tail -> concat concat_tail");
+        self.parse_concat();
+      },
+      TokenType::Union => {
+        println!("concat_tail -> union concat_tail");
+        self.parse_union();
+        self.parse_concat_tail();
+      }
+      TokenType::RParen | TokenType::Slash => {
         println!("char_tail -> ε");
       },
       _ => {
         println!("syntax error: while parsing char_tail");
+      },
+    }
+  }
+
+  fn parse_star(&mut self) {
+    match self.next_token.t_type {
+      TokenType::Star => {
+        println!("star -> *");
+        self.eat(TokenType::Star);
+      },
+      TokenType::Character | TokenType::LParen |
+      TokenType::Union | TokenType::RParen |
+      TokenType::Slash => {
+        println!("star -> ε");
+      },
+      _ => {
+        println!("syntax error: while parsing star");
+      },
+    }
+  }
+
+  fn parse_group(&mut self) {
+    match self.next_token.t_type {
+      TokenType::LParen => {
+        println!("group -> ( concat )");
+        self.eat(TokenType::LParen);
+        self.parse_concat();
+        self.eat(TokenType::RParen);
+      },
+      _ => {
+        println!("syntax error: while parsing group");
+      },
+    }
+  }
+
+  fn parse_union(&mut self) {
+    match self.next_token.t_type {
+      TokenType::Union => {
+        println!("union -> | concat");
+        self.eat(TokenType::Union);
+        self.parse_concat();
+      },
+      _ => {
+        println!("syntax error: while parsing union");
       },
     }
   }
@@ -184,9 +231,11 @@ pub struct Compiler {
 
 impl Compiler {
   pub fn new(input: String) -> Self {
-    let mut parser = Parser::new(input);
-    parser.parse();
-
+    let parser = Parser::new(input);
     return Compiler { parser };
+  }
+
+  pub fn compile(&mut self) {
+    self.parser.parse();
   }
 }
