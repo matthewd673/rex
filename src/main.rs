@@ -16,6 +16,6 @@ fn main() {
   // working
   regex::RegEx::new("/(|abc)*xyz*/");
   // aren't working but should
-  // regex::RegEx::new("/|/");
-  // regex::RegEx::new("/()*/");
+  regex::RegEx::new("/|/");
+  regex::RegEx::new("/()*/");
 }
