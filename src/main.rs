@@ -1,23 +1,21 @@
-mod nfa;
 mod regex;
-mod compiler;
+mod parser;
 
 fn main() {
   println!("rex - tiny regular expression engine\n");
 
-  let re = regex::RegEx::new("(ab|a)*");
+  let re = regex::RegEx::new("/(ab|a)*/");
   let test_cases = vec!["aba", "no", "bababa", "abababa", "", "axxbxaba",
                         "aaaab"
                         ];
-  for t in test_cases {
-    println!("Match '{}'? => {}", t, re.eval(t));
-  }
-
-  // let tokens = compiler::scan("(ab|a)*");
-  // for t in tokens {
-    // println!("{:?}: '{}'", t.t_type, t.image);
+  // for t in test_cases {
+    // println!("Match '{}'? => {}", t, re.eval(t));
   // }
 
-  let mut compiler = compiler::Compiler::new(String::from("/(ab|a)*xyz*/"));
-  compiler.compile();
+  // compiler tests
+  // working
+  regex::RegEx::new("/(|abc)*xyz*/");
+  // aren't working but should
+  // regex::RegEx::new("/|/");
+  // regex::RegEx::new("/()*/");
 }

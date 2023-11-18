@@ -1,5 +1,3 @@
-use crate::nfa::State;
-
 #[derive(Debug)]
 pub enum TokenType {
   Error,
@@ -59,46 +57,51 @@ fn char_to_token(c: char) -> Token {
   }
 }
 
-struct NFAModule {
-  heads: Vec<State>,
-  tails: Vec<State>,
-}
-
 #[derive(Debug)]
 enum NodeType {
   Error,
   Expression,
-  Character,
+  Sequence,
   Group,
   Union,
   Star,
 }
 
-struct TreeNode {
+pub struct TreeNode {
   n_type: NodeType,
-  image: char,
+  image: Vec<char>,
   children: Vec<TreeNode>,
+  success: bool,
 }
 
 impl TreeNode {
   fn new(n_type: NodeType) -> Self {
-    return TreeNode { n_type, image: '\0', children: vec![] };
+    return TreeNode { n_type, image: vec![], children: vec![], success: false };
   }
 }
 
-struct Parser {
+pub struct Parser {
   scanner: Scanner,
   next_token: Token,
 }
 
 impl Parser {
-  fn new(input: String) -> Self {
+  pub fn new(input: String) -> Self {
     let scanner = Scanner::new(input);
 
     return Parser {
       scanner,
       next_token: Token::new(TokenType::Error),
     };
+  }
+
+  pub fn parse(&mut self) -> TreeNode {
+    // point to first character
+    self.next_token = self.scanner.scan_next();
+    // TODO: temp debug printing
+    let tree = self.parse_expr();
+    print_node(&tree, 0);
+    return tree;
   }
 
   fn eat(&mut self, expected: TokenType) {
@@ -112,64 +115,64 @@ impl Parser {
     }
     // TODO: temp
     else {
-      println!("ate {:?}: '{}'", t.t_type, t.image);
+      // println!("ate {:?}: '{}'", t.t_type, t.image);
       self.next_token = self.scanner.scan_next();
     }
   }
 
-  fn parse(&mut self) -> TreeNode {
-    // point to first character
-    self.next_token = self.scanner.scan_next();
-    return self.parse_expr();
-  }
-
   fn parse_expr(&mut self) -> TreeNode {
     match self.next_token.t_type {
+      // expr -> / concat /
       TokenType::Slash => {
-        println!("expr -> / concat /");
         // create new expression node
         let mut expr_node = TreeNode::new(NodeType::Expression);
 
         // continue parsing
         self.eat(TokenType::Slash);
-        expr_node.children.push(self.parse_concat());
+        expr_node.children.push(self.parse_concat(None));
         self.eat(TokenType::Slash);
 
         return expr_node;
       },
       _ => {
-        println!("syntax error: while parsing expr");
+        println!("syntax error: saw {:?} while parsing expr",
+                 self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       },
     }
   }
 
-  fn parse_concat(&mut self) -> TreeNode {
+  fn parse_concat(&mut self, seq: Option<TreeNode>) -> TreeNode {
     match self.next_token.t_type {
+      // concat -> char star concat_tail
       TokenType::Character => {
-        println!("concat -> char star concat_tail");
-        // create new character node
-        let mut char_node = TreeNode::new(NodeType::Character);
-        char_node.image = self.next_token.image;
+        // append to existing sequence or create a new one
+        let mut seq_node;
+        match seq {
+          Some(s) => { seq_node = s; },
+          None => { seq_node = TreeNode::new(NodeType::Sequence); },
+        }
+        seq_node.image.push(self.next_token.image);
 
         // continue parsing
         self.eat(TokenType::Character);
-        let star_node = self.parse_star(char_node);
+        let star_node = self.parse_star(seq_node);
         return self.parse_concat_tail(star_node);
       },
+      // concat -> group star concat_tail
       TokenType::LParen => {
-        println!("concat -> group star concat_tail");
         let group_node = self.parse_group();
         let star_node = self.parse_star(group_node);
         return self.parse_concat_tail(star_node);
       },
+      // concat -> union concat_tail
       TokenType::Union => {
-        println!("concat -> union concat_tail");
-        let union_node = self.parse_union(TreeNode::new(NodeType::Character));
+        let union_node = self.parse_union(TreeNode::new(NodeType::Sequence));
         return self.parse_concat_tail(union_node);
       },
       _ => {
-        println!("syntax error: while parsing concat");
+        println!("syntax error: saw {:?} while parsing concat",
+                 self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       },
     }
@@ -177,22 +180,33 @@ impl Parser {
 
   fn parse_concat_tail(&mut self, mut lhs: TreeNode) -> TreeNode {
     match self.next_token.t_type {
+      // concat_tail -> concat concat_tail
       TokenType::Character => {
-        println!("concat_tail -> concat concat_tail");
-        lhs.children.push(self.parse_concat());
-        return lhs;
+        // either continue appending to a sequence
+        // or start a new sequence and make it a child of lhs
+        match lhs.n_type {
+          NodeType::Sequence => {
+            return self.parse_concat(Some(lhs));
+          },
+          _ => {
+            let concat_node = self.parse_concat(None);
+            lhs.children.push(concat_node);
+            return lhs;
+          }
+        }
       },
+      // concat_tail -> union concat_tail
       TokenType::Union => {
-        println!("concat_tail -> union concat_tail");
         let union_node = self.parse_union(lhs);
         return self.parse_concat_tail(union_node);
       }
+      // char_tail -> ε
       TokenType::RParen | TokenType::Slash => {
-        println!("char_tail -> ε");
         return lhs;
       },
       _ => {
-        println!("syntax error: while parsing char_tail");
+        println!("syntax error: saw {:?} while parsing char_tail",
+                 self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       },
     }
@@ -200,8 +214,8 @@ impl Parser {
 
   fn parse_star(&mut self, lhs: TreeNode) -> TreeNode {
     match self.next_token.t_type {
+      // star -> *
       TokenType::Star => {
-        println!("star -> *");
         self.eat(TokenType::Star);
 
         // create star node
@@ -209,16 +223,16 @@ impl Parser {
         star_node.children.push(lhs);
         return star_node;
       },
+      // star -> ε
       TokenType::Character | TokenType::LParen |
       TokenType::Union | TokenType::RParen |
       TokenType::Slash => {
-        println!("star -> ε");
-
         // rhs is unchanged
         return lhs;
       },
       _ => {
-        println!("syntax error: while parsing star");
+        println!("syntax error: saw {:?} while parsing star",
+                 self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       },
     }
@@ -226,66 +240,52 @@ impl Parser {
 
   fn parse_group(&mut self) -> TreeNode {
     match self.next_token.t_type {
+      // group -> ( concat )
       TokenType::LParen => {
-        println!("group -> ( concat )");
         // create group node
         let mut group_node = TreeNode::new(NodeType::Group);
 
         // continue parsing
         self.eat(TokenType::LParen);
-        group_node.children.push(self.parse_concat());
+        group_node.children.push(self.parse_concat(None));
         self.eat(TokenType::RParen);
 
         return group_node;
       },
       _ => {
-        println!("syntax error: while parsing group");
+        println!("syntax error: saw {:?} while parsing group",
+                 self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       },
     }
   }
 
+  // TODO: production should be union -> concat*_tail*
   fn parse_union(&mut self, lhs: TreeNode) -> TreeNode {
     match self.next_token.t_type {
+      // union -> | concat
       TokenType::Union => {
-        println!("union -> | concat");
         // create union node
         let mut union_node = TreeNode::new(NodeType::Union);
         union_node.children.push(lhs);
 
         // continue parsing
         self.eat(TokenType::Union);
-        union_node.children.push(self.parse_concat());
+        union_node.children.push(self.parse_concat(None));
 
         return union_node;
       },
       _ => {
-        println!("syntax error: while parsing union");
+        println!("syntax error: saw {:?} while parsing union",
+                 self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       },
     }
   }
 }
 
-// TODO: redundant
-pub struct Compiler {
-  parser: Parser,
-}
-
-impl Compiler {
-  pub fn new(input: String) -> Self {
-    let parser = Parser::new(input);
-    return Compiler { parser };
-  }
-
-  pub fn compile(&mut self) {
-    let tree = self.parser.parse();
-    print_node(tree, 0);
-  }
-}
-
 // TEMP DEBUG
-fn print_node(node: TreeNode, depth: i32) {
+fn print_node(node: &TreeNode, depth: i32) {
   let mut depth_str = String::new();
   for _ in 0..depth {
     depth_str.push_str("  ");
@@ -293,12 +293,19 @@ fn print_node(node: TreeNode, depth: i32) {
 
   print!("{}", depth_str);
   print!("[{:?}", node.n_type);
-  if node.image != '\0' {
-    print!("({})", node.image);
+  if node.image.len() > 0 {
+    print!("(");
+    for c in &node.image {
+      print!("{}", c);
+    }
+    print!(")");
+  }
+  else if node.image.len() == 0 && matches!(node.n_type, NodeType::Sequence) {
+    print!("(ε)");
   }
   println!("]");
 
-  for n in node.children {
+  for n in &node.children {
     print_node(n, depth + 1);
   }
 }
