@@ -4,7 +4,7 @@ mod parser;
 fn main() {
   println!("rex - tiny regular expression engine\n");
 
-  let re = regex::RegEx::new("/(ab|a)*/");
+  let re = regex::RegEx::new("(ab|a)*");
   let test_cases = vec!["aba", "no", "bababa", "abababa", "", "axxbxaba",
                         "aaaab"
                         ];
@@ -14,8 +14,8 @@ fn main() {
 
   // compiler tests
   // working
-  regex::RegEx::new("/(|abc)*xyz*/");
-  // aren't working but should
-  regex::RegEx::new("/|/");
-  regex::RegEx::new("/()*/");
+  // regex::RegEx::new("/(|abc)*xyz*/");
+  // // aren't working but should
+  // regex::RegEx::new("/|/");
+  // regex::RegEx::new("/()*/");
 }
