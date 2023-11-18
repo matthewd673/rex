@@ -186,9 +186,6 @@ impl Parser {
       // seq -> atom star seq
       TokenType::Character | TokenType::LParen => {
         println!("seq -> atom star seq");
-        // create seq node
-        let mut seq_node = TreeNode::new(NodeType::Sequence);
-
         // continue parsing
         let atom_node = self.parse_atom();
         let star_node = self.parse_star(atom_node);
@@ -200,10 +197,10 @@ impl Parser {
           prev.image.push(star_node.image[0]);
           return self.parse_seq(prev);
         }
-
         // otherwise act like normal
+        let mut seq_node = TreeNode::new(NodeType::Sequence);
+        seq_node.add_child(prev);
         seq_node.add_child(self.parse_seq(star_node));
-
         return seq_node;
       },
       // seq -> ε
@@ -289,11 +286,28 @@ impl Parser {
         println!("union -> | expr");
         // create union node
         let mut union_node = TreeNode::new(NodeType::Union);
-        union_node.add_child(lhs);
+        // if lhs is empty replace it with a 0-length word
+        if matches!(lhs.n_type, NodeType::Empty) {
+          union_node.add_child(TreeNode::new(NodeType::Word));
+        }
+        // if not empty, be normal
+        else {
+          union_node.add_child(lhs);
+        }
 
         // continue parsing
         self.eat(TokenType::Union);
-        union_node.add_child(self.parse_expr());
+        let expr_node = self.parse_expr();
+
+        // if expression is empty replace it with a 0-length word
+        // otherwise it will be culled and you won't be able to match (a|b|)
+        if matches!(expr_node.n_type, NodeType::Empty) {
+          union_node.add_child(TreeNode::new(NodeType::Word));
+        }
+        // if not empty, be normal
+        else {
+          union_node.add_child(expr_node);
+        }
 
         return union_node;
       },
@@ -312,7 +326,7 @@ impl Parser {
   }
 }
 
-// TEMP DEBUG
+// DEBUG
 fn print_node(node: &TreeNode, depth: i32) {
   let mut depth_str = String::new();
   for _ in 0..depth {
@@ -327,6 +341,9 @@ fn print_node(node: &TreeNode, depth: i32) {
       print!("{}", c);
     }
     print!(")");
+  }
+  else if matches!(node.n_type, NodeType::Word) {
+    print!("(ε)");
   }
   println!("]");
 
