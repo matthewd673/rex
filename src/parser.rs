@@ -56,12 +56,10 @@ fn char_to_token(c: char) -> Token {
 }
 
 #[derive(Debug)]
-enum NodeType {
+pub enum NodeType {
   Error,
   Empty,
 
-  Expression,
-  Sequence,
   Word,
   Union,
   Star,
@@ -70,9 +68,9 @@ enum NodeType {
 }
 
 pub struct TreeNode {
-  n_type: NodeType,
-  image: Vec<char>,
-  children: Vec<TreeNode>,
+  pub n_type: NodeType,
+  pub image: Vec<char>,
+  pub children: Vec<TreeNode>,
   success: bool,
 }
 
