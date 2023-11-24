@@ -64,9 +64,9 @@ enum NodeType {
   Expression,
   Sequence,
   Word,
-  Grouping,
   Union,
   Star,
+  Group,
 }
 
 pub struct TreeNode {
@@ -85,6 +85,18 @@ impl TreeNode {
     if !matches!(child.n_type, NodeType::Empty) {
       self.children.push(child);
     }
+  }
+
+  fn add_children(&mut self, children: Vec<TreeNode>) {
+    for c in children {
+      self.add_child(c);
+    }
+  }
+
+  fn new_group(children: Vec<TreeNode>) -> TreeNode {
+    let mut group = TreeNode::new(NodeType::Group);
+    group.add_children(children);
+    return group;
   }
 }
 
@@ -107,7 +119,7 @@ impl Parser {
     // point to first character
     self.next_token = self.scanner.scan_next();
     // TODO: temp debug printing
-    let tree = self.parse_total();
+    let tree = self.parse_root();
     print_node(&tree, 0);
     return tree;
   }
@@ -127,7 +139,7 @@ impl Parser {
     }
   }
 
-  fn parse_total(&mut self) -> TreeNode {
+  fn parse_root(&mut self) -> TreeNode {
     match self.next_token.t_type {
       // total -> expr eof
       TokenType::Character | TokenType::LParen |
@@ -138,7 +150,7 @@ impl Parser {
         let mut root_node = TreeNode::new(NodeType::Root);
 
         // continue parsing
-        root_node.add_child(self.parse_expr());
+        root_node.add_children(self.parse_expr());
         self.eat(TokenType::EOF);
 
         return root_node;
@@ -151,37 +163,41 @@ impl Parser {
     }
   }
 
-  fn parse_expr(&mut self) -> TreeNode {
+  fn parse_expr(&mut self) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // expr -> seq union expr
       TokenType::Character | TokenType::LParen |
       TokenType::Union => {
         println!("expr -> seq union expr");
         // create expr node
-        let mut expr_node = TreeNode::new(NodeType::Expression);
+        // let mut expr_node = TreeNode::new(NodeType::Expression);
+        let mut child_vec = vec![];
 
         // continue parsing
-        let seq_node = self.parse_seq(TreeNode::new(NodeType::Empty));
-        let union_node = self.parse_union(seq_node);
-        expr_node.add_child(union_node);
-        expr_node.add_child(self.parse_expr()); // TODO: doesn't seem right
+        let sequence = self.parse_seq(TreeNode::new(NodeType::Empty));
+        let union_node = self.parse_union(TreeNode::new_group(sequence));
 
-        return expr_node;
+        child_vec.push(union_node);
+        for n in self.parse_expr() {
+          child_vec.push(n);
+        }
+
+        return child_vec;
       },
       // expr -> ε
       TokenType::RParen | TokenType::EOF => {
         println!("expr -> ε");
-        return TreeNode::new(NodeType::Empty);
+        return vec![];
       },
       _ => {
         println!("syntax error: saw {:?} while parsing expr",
                  self.next_token.t_type);
-        return TreeNode::new(NodeType::Error);
+        return vec![TreeNode::new(NodeType::Error)];
       },
     }
   }
 
-  fn parse_seq(&mut self, mut prev: TreeNode) -> TreeNode {
+  fn parse_seq(&mut self, mut prev: TreeNode) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // seq -> atom star seq
       TokenType::Character | TokenType::LParen => {
@@ -198,21 +214,26 @@ impl Parser {
           return self.parse_seq(prev);
         }
         // otherwise act like normal
-        let mut seq_node = TreeNode::new(NodeType::Sequence);
-        seq_node.add_child(prev);
-        seq_node.add_child(self.parse_seq(star_node));
-        return seq_node;
+
+        // create child vector
+        let mut child_vec = vec![];
+        child_vec.push(prev);
+        for n in self.parse_seq(star_node) {
+          child_vec.push(n);
+        }
+
+        return child_vec;
       },
       // seq -> ε
       TokenType::Union | TokenType::RParen |
       TokenType::EOF => {
         println!("seq -> ε");
-        return prev; // return previous without modifying it
+        return vec![prev]; // return previous without modifying it
       },
       _ => {
         println!("syntax error: saw {:?} while parsing sequence",
                  self.next_token.t_type);
-        return TreeNode::new(NodeType::Error);
+        return vec![TreeNode::new(NodeType::Error)];
       },
     }
   }
@@ -240,7 +261,7 @@ impl Parser {
         let expr_node = self.parse_expr();
         self.eat(TokenType::RParen);
 
-        return expr_node;
+        return TreeNode::new_group(expr_node);
       },
       _ => {
         println!("syntax error: saw {:?} while parsing atom",
@@ -301,12 +322,12 @@ impl Parser {
 
         // if expression is empty replace it with a 0-length word
         // otherwise it will be culled and you won't be able to match (a|b|)
-        if matches!(expr_node.n_type, NodeType::Empty) {
+        if expr_node.len() == 0 {
           union_node.add_child(TreeNode::new(NodeType::Word));
         }
         // if not empty, be normal
         else {
-          union_node.add_child(expr_node);
+          union_node.add_children(expr_node);
         }
 
         return union_node;
