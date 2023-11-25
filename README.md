@@ -16,4 +16,6 @@ cargo run -- test_cases.txt
 - Grouping: `(a|b)*`
 - Escaping: `a\*`
   - Common escape sequences: `\t`, `\n`, `\r`
-- Charsets: `[abc]`, `[^xyz]` (no ranges yet)
+- Charsets: `[abc]`
+  - Negation: `[^xyz]`
+  - Ranges: `[a-zA-Z]`

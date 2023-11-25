@@ -79,14 +79,24 @@ pub enum NodeType {
   MatchGroup,
 }
 
+pub struct Bounds {
+  pub min: u32,
+  pub max: u32,
+}
+
+pub struct CharRange {
+  pub min: char,
+  pub max: char,
+}
+
 pub struct TreeNode {
   pub n_type: NodeType,
   pub children: Vec<TreeNode>,
-  pub image: Vec<char>, // used by Words
-  pub repeat_min: u32, // used by Star-likes (?, etc.)
-  pub repeat_max: u32,
-  pub negated: bool, // used by Charsets
- }
+  pub image: Vec<char>,     // used by Words
+  pub repeats: Bounds,      // used by Star-likes (?, etc.)
+  pub negated: bool,        // used by Charsets
+  pub ranges: Vec<CharRange>,  // used by Charsets
+}
 
 impl TreeNode {
   fn new(n_type: NodeType) -> Self {
@@ -94,9 +104,9 @@ impl TreeNode {
       n_type,
       children: vec![],
       image: vec![],
-      repeat_min: 0,
-      repeat_max: 0,
+      repeats: Bounds { min: 0, max: 0 },
       negated: false,
+      ranges: vec![],
     };
   }
 
@@ -381,8 +391,8 @@ impl Parser {
         // create star node with repeat count
         let mut star_node = TreeNode::new(NodeType::Star);
         star_node.add_child(lhs);
-        star_node.repeat_min = 0;
-        star_node.repeat_max = 1;
+        star_node.repeats.min = 0;
+        star_node.repeats.max = 1;
 
         // continue parsing
         self.eat(TokenType::Question);
@@ -394,8 +404,8 @@ impl Parser {
         // create star node with repeat count
         let mut star_node = TreeNode::new(NodeType::Star);
         star_node.add_child(lhs);
-        star_node.repeat_min = 1;
-        star_node.repeat_max = 0; // no maximum
+        star_node.repeats.min = 1;
+        star_node.repeats.max = 0; // no maximum
 
         // continue parsing
         self.eat(TokenType::Plus);
@@ -496,8 +506,24 @@ impl Parser {
         // parse as many characters as possible
         while matches!(self.next_token.t_type, TokenType::Character) |
               matches!(self.next_token.t_type, TokenType::Escape) {
+          // get next character
           let mut char_node = self.parse_character();
-          charset_node.image.push(char_node.image.pop().unwrap());
+          let c = char_node.image.pop().unwrap();
+
+          // turn two characters separated by a '-' into a range
+          if charset_node.ranges.len() > 1 &&
+             charset_node.ranges.last().unwrap().min == '-' {
+             // remove the dash
+             charset_node.ranges.pop();
+             // modify the previous char into a range
+             let mut prev_range = charset_node.ranges.pop().unwrap();
+             prev_range.max = c;
+             charset_node.ranges.push(prev_range);
+          }
+          // just add a character to the ranges
+          else {
+            charset_node.ranges.push(CharRange { min: c, max: c });
+          }
         }
 
         return charset_node;

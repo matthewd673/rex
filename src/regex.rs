@@ -112,13 +112,13 @@ impl RegExMatch {
 
       // stop if maximum has been exceeded
       // if maximum is zero then it will never be exceeded (a.k.a: 0 = inf)
-      if loop_ct == node.repeat_max {
+      if loop_ct == node.repeats.max {
         break;
       }
     }
 
     // only a success if minimum count was reached
-    return (loop_ct >= node.repeat_min, best_i);
+    return (loop_ct >= node.repeats.min, best_i);
   }
 
   fn interpret_group(&self, node: &TreeNode, i: usize) -> (bool, usize) {
@@ -154,11 +154,13 @@ impl RegExMatch {
     }
 
     // try to find any match in char set
-    for c in &node.image {
-      if !node.negated && c == &self.chars[i] {
+    for r in &node.ranges {
+      if !node.negated &&
+         &self.chars[i] >= &r.min && &self.chars[i] <= &r.max {
         return (true, i + 1);
       }
-      else if node.negated && c == &self.chars[i] {
+      else if node.negated &&
+              (&self.chars[i] >= &r.min && &self.chars[i] <= &r.max) {
         return (false, i);
       }
     }

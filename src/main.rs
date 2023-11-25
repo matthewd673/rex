@@ -19,12 +19,7 @@ fn main() {
                     .expect("Failed to load file");
   let file_lines = file_text.split("\n");
 
-  // let re = regex::RegEx::new("a(a|b)*xyz*");
-  // let test_cases = vec!["abaxy", "no", "abababaxyzzzzzzz", "abababaxy", "",
-                        // "axxbxaba", "aaaabxyzz", "axy",
-                        // ];
-
-  let re = regex::RegEx::new("[abc]+[^0]?");
+  let re = regex::RegEx::new("[a-zA-Z]+[^0-9]?");
   println!("re = {}", re.expr);
   for l in file_lines {
     println!("\"{}\":", l);
