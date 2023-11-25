@@ -2,5 +2,13 @@
 rex
 trex
 
+# vim
+*.swp
+*.swo
+
 # debugging
 rex.dSYM/
+
+# Added by cargo
+
+/target
