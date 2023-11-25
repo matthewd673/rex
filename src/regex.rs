@@ -132,13 +132,15 @@ impl RegExMatch {
 }
 
 pub struct RegEx {
+  pub expr: String,
   tree: TreeNode,
 }
 
 impl RegEx {
   pub fn new(expr: &str) -> Self {
-    let mut parser = Parser::new(String::from(expr));
-    return RegEx { tree: parser.parse() };
+    let expr = String::from(expr);
+    let mut parser = Parser::new(&expr);
+    return RegEx { expr, tree: parser.parse() };
   }
 
   pub fn eval(&self, str: String) -> RegExMatch {

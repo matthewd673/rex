@@ -6,6 +6,7 @@ pub enum TokenType {
   Star,
   LParen,
   RParen,
+  Escape,
   EOF,
 }
 
@@ -27,7 +28,7 @@ struct Scanner {
 }
 
 impl Scanner {
-  fn new(input: String) -> Self {
+  fn new(input: &String) -> Self {
     let chars = input.chars().collect();
     return Scanner { chars, index: 0usize };
   }
@@ -51,6 +52,7 @@ fn char_to_token(c: char) -> Token {
     '*' => Token { t_type: TokenType::Star, image: c },
     '(' => Token { t_type: TokenType::LParen, image: c },
     ')' => Token { t_type: TokenType::RParen, image: c },
+    '\\' => Token { t_type: TokenType::Escape, image: c },
     _ => Token { t_type: TokenType::Character, image: c },
   }
 }
@@ -111,7 +113,7 @@ pub struct Parser {
 }
 
 impl Parser {
-  pub fn new(input: String) -> Self {
+  pub fn new(input: &String) -> Self {
     let scanner = Scanner::new(input);
 
     return Parser {
@@ -137,17 +139,20 @@ impl Parser {
                );
     }
     else {
-      // println!("ate {:?}: '{}'", t.t_type, t.image);
       self.next_token = self.scanner.scan_next();
     }
+  }
+
+  fn eat_any(&mut self) {
+    self.next_token = self.scanner.scan_next();
   }
 
   fn parse_root(&mut self) -> TreeNode {
     match self.next_token.t_type {
       // total -> expr eof
-      TokenType::Character | TokenType::LParen |
-      TokenType::Union | TokenType::RParen |
-      TokenType::EOF => {
+      TokenType::Character | TokenType::Escape |
+      TokenType::LParen | TokenType::Union |
+      TokenType::RParen | TokenType::EOF => {
         // println!("total -> expr eof");
         // create root node
         let mut root_node = TreeNode::new(NodeType::Group);
@@ -169,8 +174,8 @@ impl Parser {
   fn parse_expr(&mut self) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // expr -> seq union expr
-      TokenType::Character | TokenType::LParen |
-      TokenType::Union => {
+      TokenType::Character | TokenType::Escape |
+      TokenType::LParen | TokenType::Union => {
         // println!("expr -> seq union expr");
         // create expr node
         // let mut expr_node = TreeNode::new(NodeType::Expression);
@@ -213,7 +218,8 @@ impl Parser {
   fn parse_seq(&mut self, mut prev: TreeNode) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // seq -> atom star seq
-      TokenType::Character | TokenType::LParen => {
+      TokenType::Character | TokenType::Escape |
+      TokenType::LParen => {
         // println!("seq -> atom star seq");
         // continue parsing
         let atom_node = self.parse_atom();
@@ -280,6 +286,19 @@ impl Parser {
 
         return TreeNode::make_group(expr_node, NodeType::MatchGroup);
       },
+      // atom -> \ character
+      TokenType::Escape => {
+        // println!("atom -> \ character");
+        self.eat(TokenType::Escape);
+
+        // read next token for what it really is and build word
+        let mut word_node = TreeNode::new(NodeType::Word);
+        word_node.image.push(self.next_token.image);
+        self.eat_any(); // whatever the next token actually is, eat it
+        // TODO: support for special characters like \n, \t, and \##
+
+        return word_node;
+      }
       _ => {
         println!("syntax error: saw {:?} while parsing atom",
                  self.next_token.t_type);
@@ -303,9 +322,9 @@ impl Parser {
         return star_node;
       },
       // star -> ε
-      TokenType::Character | TokenType::LParen |
-      TokenType::Union | TokenType::RParen |
-      TokenType::EOF => {
+      TokenType::Character | TokenType::Escape |
+      TokenType::LParen | TokenType::Union |
+      TokenType::RParen | TokenType::EOF => {
         // println!("star -> ε");
         return lhs; // return lhs unmodified
       },
@@ -350,8 +369,9 @@ impl Parser {
         return union_node;
       },
       // union -> ε
-      TokenType::Character | TokenType::LParen |
-      TokenType::RParen | TokenType::EOF => {
+      TokenType::Character | TokenType::Escape |
+      TokenType::LParen | TokenType::RParen |
+      TokenType::EOF => {
         // println!("union -> ε");
         return lhs; // return lhs unmodified
       },

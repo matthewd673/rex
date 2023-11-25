@@ -2,6 +2,9 @@
 rex
 trex
 
+# testing
+test_cases.txt
+
 # vim
 *.swp
 *.swo
