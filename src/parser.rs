@@ -331,9 +331,7 @@ impl Parser {
 
         // read next token for what it really is and build word
         let mut word_node = TreeNode::new(NodeType::Word);
-        word_node.image.push(self.next_token.image);
-        self.eat_any(); // whatever the next token actually is, eat it
-        // TODO: support for special characters like \n, \t, and \##
+        word_node.image.push(self.handle_escape_sequence());
 
         return word_node;
       },
@@ -343,6 +341,19 @@ impl Parser {
         return TreeNode::new(NodeType::Error);
       }
     }
+  }
+
+  fn handle_escape_sequence(&mut self) -> char {
+    let c = match self.next_token.image {
+      't' => '\t',
+      'n' => '\n',
+      'r' => '\r',
+      // TODO: ascii ## and unicode \u####
+      _ => self.next_token.image,
+    };
+
+    self.eat_any();
+    return c;
   }
 
   fn parse_star(&mut self, lhs: TreeNode) -> TreeNode {
