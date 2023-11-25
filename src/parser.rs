@@ -71,12 +71,11 @@ pub struct TreeNode {
   pub n_type: NodeType,
   pub image: Vec<char>,
   pub children: Vec<TreeNode>,
-  success: bool,
 }
 
 impl TreeNode {
   fn new(n_type: NodeType) -> Self {
-    return TreeNode { n_type, image: vec![], children: vec![], success: false };
+    return TreeNode { n_type, image: vec![], children: vec![] };
   }
 
   fn add_child(&mut self, child: TreeNode) {
@@ -92,7 +91,6 @@ impl TreeNode {
   }
 
   fn make_group(children: Vec<TreeNode>, group_type: NodeType) -> TreeNode {
-    println!("MAKE GROUP {:?}", group_type);
     let mut group = TreeNode::new(group_type);
     group.add_children(children);
     return group;
@@ -144,7 +142,7 @@ impl Parser {
       TokenType::Character | TokenType::LParen |
       TokenType::Union | TokenType::RParen |
       TokenType::EOF => {
-        println!("total -> expr eof");
+        // println!("total -> expr eof");
         // create root node
         let mut root_node = TreeNode::new(NodeType::Group);
 
@@ -167,7 +165,7 @@ impl Parser {
       // expr -> seq union expr
       TokenType::Character | TokenType::LParen |
       TokenType::Union => {
-        println!("expr -> seq union expr");
+        // println!("expr -> seq union expr");
         // create expr node
         // let mut expr_node = TreeNode::new(NodeType::Expression);
         let mut child_vec = vec![];
@@ -175,8 +173,8 @@ impl Parser {
         // continue parsing
         let mut sequence = self.parse_seq(TreeNode::new(NodeType::Empty));
 
-        let mut union_node;
-        println!("seq length!: {}", sequence.len());
+        let union_node;
+        // println!("seq length!: {}", sequence.len());
         if sequence.len() == 1 {
           let first = sequence.pop().unwrap(); // pop to move [0] out of vec
           union_node = self.parse_union(first);
@@ -195,7 +193,7 @@ impl Parser {
       },
       // expr -> ε
       TokenType::RParen | TokenType::EOF => {
-        println!("expr -> ε");
+        // println!("expr -> ε");
         return vec![];
       },
       _ => {
@@ -210,7 +208,7 @@ impl Parser {
     match self.next_token.t_type {
       // seq -> atom star seq
       TokenType::Character | TokenType::LParen => {
-        println!("seq -> atom star seq");
+        // println!("seq -> atom star seq");
         // continue parsing
         let atom_node = self.parse_atom();
         let star_node = self.parse_star(atom_node);
@@ -242,7 +240,7 @@ impl Parser {
       // seq -> ε
       TokenType::Union | TokenType::RParen |
       TokenType::EOF => {
-        println!("seq -> ε");
+        // println!("seq -> ε");
         return vec![prev]; // return previous without modifying it
       },
       _ => {
@@ -257,7 +255,7 @@ impl Parser {
     match self.next_token.t_type {
       // atom -> charater
       TokenType::Character => {
-        println!("atom -> character");
+        // println!("atom -> character");
         // create word node
         let mut word_node = TreeNode::new(NodeType::Word);
         word_node.image.push(self.next_token.image);
@@ -269,9 +267,7 @@ impl Parser {
       },
       // atom -> ( expr )
       TokenType::LParen => {
-        println!("atom -> ( expr )");
-        // TODO: create grouping node
-
+        // println!("atom -> ( expr )");
         self.eat(TokenType::LParen);
         let expr_node = self.parse_expr();
         self.eat(TokenType::RParen);
@@ -290,7 +286,7 @@ impl Parser {
     match self.next_token.t_type {
       // star -> *
       TokenType::Star => {
-        println!("star -> *");
+        // println!("star -> *");
         // create star node
         let mut star_node = TreeNode::new(NodeType::Star);
         star_node.add_child(lhs);
@@ -304,7 +300,7 @@ impl Parser {
       TokenType::Character | TokenType::LParen |
       TokenType::Union | TokenType::RParen |
       TokenType::EOF => {
-        println!("star -> ε");
+        // println!("star -> ε");
         return lhs; // return lhs unmodified
       },
       _ => {
@@ -319,7 +315,7 @@ impl Parser {
     match self.next_token.t_type {
       // union -> | expr
       TokenType::Union => {
-        println!("union -> | expr");
+        // println!("union -> | expr");
         // create union node
         let mut union_node = TreeNode::new(NodeType::Union);
         // if lhs is empty replace it with a 0-length word
@@ -350,7 +346,7 @@ impl Parser {
       // union -> ε
       TokenType::Character | TokenType::LParen |
       TokenType::RParen | TokenType::EOF => {
-        println!("union -> ε");
+        // println!("union -> ε");
         return lhs; // return lhs unmodified
       },
       _ => {

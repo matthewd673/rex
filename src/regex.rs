@@ -15,11 +15,12 @@ impl RegExMatch {
     };
   }
 
-  fn interpret(&mut self, tree: TreeNode) {
-    self.success = self.interpret_node(&tree, 0);
+  fn interpret(&mut self, tree: &TreeNode) {
+    let (success, _) = self.interpret_node(tree, 0);
+    self.success = success;
   }
 
-  fn interpret_node(&self, node: &TreeNode, i: usize) -> bool {
+  fn interpret_node(&self, node: &TreeNode, i: usize) -> (bool, usize) {
     match &node.n_type {
       NodeType::Word => self.interpret_word(node, i),
       NodeType::Union => self.interpret_union(node, i),
@@ -28,66 +29,79 @@ impl RegExMatch {
       NodeType::MatchGroup => self.interpret_match_group(node, i),
       _ => {
         println!("runtime error: unknown node type {:?}", node.n_type);
-        return false;
+        return (false, i);
       },
     }
   }
 
-  fn interpret_word(&self, node: &TreeNode, i: usize) -> bool {
+  fn interpret_word(&self, node: &TreeNode, i: usize) -> (bool, usize) {
     let mut i = i;
     // try to match every char in word
     for c in &node.image {
       // reached the end of the string, can't possibly match
       if i >= self.chars.len() {
-        return false;
+        return (false, i);
       }
 
       // break if mismatch
       if &self.chars[i] != c {
-        return false;
+        return (false, i);
       }
       i += 1;
     }
 
-    return true; // nothing bad happened
+    return (true, i); // nothing bad happened
   }
 
-  fn interpret_union(&self, node: &TreeNode, i: usize) -> bool {
+  fn interpret_union(&self, node: &TreeNode, i: usize) -> (bool, usize) {
     let mut success = false;
+    let mut best_i = i;
     for n in &node.children {
-      success = success | self.interpret_node(n, i);
+      let (n_s, n_i) = self.interpret_node(n, i);
+      success = success | n_s;
+      if n_s && n_i > best_i {
+        best_i = n_i;
+      }
     }
 
-    return success;
+    return (success, best_i);
   }
 
-  fn interpret_star(&self, node: &TreeNode, i: usize) -> bool {
+  fn interpret_star(&self, node: &TreeNode, i: usize) -> (bool, usize) {
     // there will only ever be one child
     let n = &node.children[0];
+    let mut best_i = i;
 
     // interpret that child as long as possible
     loop {
-      if !self.interpret_node(n, i) {
+      let (n_s, n_i) = self.interpret_node(n, best_i);
+      if !n_s {
         break;
       }
+
+      best_i = n_i;
     }
 
-    return true;
+    return (true, best_i);
   }
 
-  fn interpret_group(&self, node: &TreeNode, i: usize) -> bool {
+  fn interpret_group(&self, node: &TreeNode, i: usize) -> (bool, usize) {
+    let mut last_i = i;
+
     // just interpret all children
     for n in &node.children {
-      let success = self.interpret_node(n, i);
-      if !success {
-        return false;
+      let (n_s, n_i) = self.interpret_node(n, i);
+      if !n_s {
+        return (false, n_i);
       }
+
+      last_i = n_i;
     }
 
-    return true;
+    return (true, last_i);
   }
 
-  fn interpret_match_group(&self, node: &TreeNode, i: usize) -> bool {
+  fn interpret_match_group(&self, node: &TreeNode, i: usize) -> (bool, usize) {
     // just interpret a group like normal
     // TODO: also save match data
     return self.interpret_group(node, i);
@@ -104,10 +118,10 @@ impl RegEx {
     return RegEx { tree: parser.parse() };
   }
 
-  pub fn eval(self, str: String) -> RegExMatch {
+  pub fn eval(&self, str: String) -> RegExMatch {
     // create RegExMatch for the string
     let mut m = RegExMatch::new(str);
-    m.interpret(self.tree);
+    m.interpret(&self.tree);
 
     return m;
   }
