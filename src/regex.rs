@@ -100,6 +100,7 @@ impl RegExMatch {
     let mut best_i = i;
 
     // interpret that child as long as possible
+    let mut loop_ct = 0;
     loop {
       let (n_s, n_i) = self.interpret_node(n, best_i);
       if !n_s {
@@ -107,10 +108,17 @@ impl RegExMatch {
       }
 
       best_i = n_i;
+      loop_ct += 1;
+
+      // stop if maximum has been exceeded
+      // if maximum is zero then it will never be exceeded (a.k.a: 0 = inf)
+      if loop_ct == node.repeat_max {
+        break;
+      }
     }
 
-    // println!("star -> {}", best_i);
-    return (true, best_i);
+    // only a success if minimum count was reached
+    return (loop_ct >= node.repeat_min, best_i);
   }
 
   fn interpret_group(&self, node: &TreeNode, i: usize) -> (bool, usize) {

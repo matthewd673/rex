@@ -10,6 +10,8 @@ pub enum TokenType {
   LBracket,
   RBracket,
   Caret,
+  Question,
+  Plus,
   EOF,
 }
 
@@ -58,6 +60,8 @@ fn char_to_token(c: char) -> Token {
     '[' => Token { t_type: TokenType::LBracket, image: c },
     ']' => Token { t_type: TokenType::RBracket, image: c },
     '^' => Token { t_type: TokenType::Caret, image: c },
+    '?' => Token { t_type: TokenType::Question, image: c },
+    '+' => Token { t_type: TokenType::Plus, image: c },
     _ => Token { t_type: TokenType::Character, image: c },
   }
 }
@@ -79,7 +83,8 @@ pub struct TreeNode {
   pub n_type: NodeType,
   pub children: Vec<TreeNode>,
   pub image: Vec<char>, // used by Words
-  pub repeats: u32, // used by Star-likes (?, etc.)
+  pub repeat_min: u32, // used by Star-likes (?, etc.)
+  pub repeat_max: u32,
   pub negated: bool, // used by Charsets
  }
 
@@ -89,7 +94,8 @@ impl TreeNode {
       n_type,
       children: vec![],
       image: vec![],
-      repeats: 0,
+      repeat_min: 0,
+      repeat_max: 0,
       negated: false,
     };
   }
@@ -367,6 +373,32 @@ impl Parser {
 
         // continue parsing
         self.eat(TokenType::Star);
+
+        return star_node;
+      },
+      // star -> ?
+      TokenType::Question => {
+        // create star node with repeat count
+        let mut star_node = TreeNode::new(NodeType::Star);
+        star_node.add_child(lhs);
+        star_node.repeat_min = 0;
+        star_node.repeat_max = 1;
+
+        // continue parsing
+        self.eat(TokenType::Question);
+
+        return star_node;
+      },
+      // star -> +
+      TokenType::Plus => {
+        // create star node with repeat count
+        let mut star_node = TreeNode::new(NodeType::Star);
+        star_node.add_child(lhs);
+        star_node.repeat_min = 1;
+        star_node.repeat_max = 0; // no maximum
+
+        // continue parsing
+        self.eat(TokenType::Plus);
 
         return star_node;
       },

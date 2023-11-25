@@ -24,7 +24,7 @@ fn main() {
                         // "axxbxaba", "aaaabxyzz", "axy",
                         // ];
 
-  let re = regex::RegEx::new("[abc]\t[^xyz]");
+  let re = regex::RegEx::new("[abc]+[^0]?");
   println!("re = {}", re.expr);
   for l in file_lines {
     println!("\"{}\":", l);
