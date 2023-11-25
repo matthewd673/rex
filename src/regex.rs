@@ -4,20 +4,28 @@ use crate::parser::NodeType;
 
 pub struct RegExMatch {
   chars: Vec<char>,
-  pub success: bool,
+  pub string: String,
+  pub matches: Vec<String>,
 }
 
 impl RegExMatch {
-  fn new(str: String) -> Self {
+  fn new(s: String) -> Self {
     return RegExMatch {
-      chars: str.chars().collect(),
-      success: false, // should be set later
+      chars: (&s).chars().collect(),
+      string: s,
+      // the below should be set before the match is returned
+      matches: vec![],
     };
   }
 
-  fn interpret(&mut self, tree: &TreeNode) {
-    let (success, _) = self.interpret_node(tree, 0);
-    self.success = success;
+  fn interpret(&mut self, tree: &TreeNode, start: usize) -> usize {
+    let (success, stop) = self.interpret_node(tree, start);
+
+    if success {
+      self.matches.push(String::from(&self.string[start..stop]));
+    }
+
+    return stop;
   }
 
   fn print_chars(&self, i: usize) -> String {
@@ -170,10 +178,12 @@ impl RegEx {
     return RegEx { expr, tree: parser.parse() };
   }
 
-  pub fn eval(&self, str: String) -> RegExMatch {
-    // create RegExMatch for the string
-    let mut m = RegExMatch::new(str);
-    m.interpret(&self.tree);
+  pub fn match_all(&self, s: String) -> RegExMatch {
+    let mut m = RegExMatch::new(s);
+    let mut start = 0;
+    while start < m.string.len() {
+      start = m.interpret(&self.tree, start) + 1;
+    }
 
     return m;
   }

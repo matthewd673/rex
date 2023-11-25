@@ -27,6 +27,10 @@ fn main() {
   let re = regex::RegEx::new("[abc][^xyz]");
   println!("re = {}", re.expr);
   for l in file_lines {
-    println!("Match '{}'? => {}", l, re.eval(String::from(l)).success);
+    println!("\"{}\":", l);
+    let match_data = re.match_all(String::from(l));
+    for m in match_data.matches {
+      println!("  \"{}\"", m);
+    }
   }
 }
