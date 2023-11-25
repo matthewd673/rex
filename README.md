@@ -3,7 +3,7 @@
 tiny regular expression engine
 
 ```
-cargo run
+cargo run -- test_cases.txt
 ```
 
 ## Supported operators
@@ -13,3 +13,4 @@ cargo run
 - Kleene closure: `a*`
 - Grouping: `(a|b)*`
 - Escape characters: `a\*`
+- Charsets: `[abc]`, `[^xyz]` (no ranges yet)

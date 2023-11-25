@@ -38,6 +38,7 @@ impl RegExMatch {
       NodeType::Star => self.interpret_star(node, i),
       NodeType::Group => self.interpret_group(node, i),
       NodeType::MatchGroup => self.interpret_match_group(node, i),
+      NodeType::Charset => self.interpret_charset(node, i),
       _ => {
         println!("runtime error: unknown node type {:?}", node.n_type);
         return (false, i);
@@ -128,6 +129,24 @@ impl RegExMatch {
     // just interpret a group like normal
     // TODO: also save match data
     return self.interpret_group(node, i);
+  }
+
+  fn interpret_charset(&self, node: &TreeNode, i: usize) -> (bool, usize) {
+    // skip if out of bounds
+    if i >= self.chars.len() {
+      return (false, i);
+    }
+
+    // try to find any match in char set
+    for c in &node.image {
+      if (!node.negated && c == &self.chars[i]) ||
+         (node.negated && c != &self.chars[i]) {
+        return (true, i + 1);
+      }
+    }
+
+    // no match found
+    return (false, i);
   }
 }
 
