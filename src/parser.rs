@@ -95,6 +95,14 @@ impl TreeNode {
     group.add_children(children);
     return group;
   }
+
+  pub fn image_to_str(&self) -> String {
+    let mut s = String::new();
+    for i in 0..self.image.len() {
+      s.push(self.image[i]);
+    }
+    return s;
+  }
 }
 
 pub struct Parser {
@@ -115,10 +123,8 @@ impl Parser {
   pub fn parse(&mut self) -> TreeNode {
     // point to first character
     self.next_token = self.scanner.scan_next();
-    // TODO: temp debug printing
-    let tree = self.parse_root();
-    print_node(&tree, 0);
-    return tree;
+    // parse
+    return self.parse_root();
   }
 
   fn eat(&mut self, expected: TokenType) {
