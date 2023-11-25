@@ -139,14 +139,22 @@ impl RegExMatch {
 
     // try to find any match in char set
     for c in &node.image {
-      if (!node.negated && c == &self.chars[i]) ||
-         (node.negated && c != &self.chars[i]) {
+      if !node.negated && c == &self.chars[i] {
         return (true, i + 1);
+      }
+      else if node.negated && c == &self.chars[i] {
+        return (false, i);
       }
     }
 
-    // no match found
-    return (false, i);
+    // no match found for positive match (bad)
+    if !node.negated {
+      return (false, i);
+    }
+    // no match found for negative match (good)
+    else {
+      return (true, i + 1);
+    }
   }
 }
 

@@ -140,7 +140,9 @@ impl Parser {
     // point to first character
     self.next_token = self.scanner.scan_next();
     // parse
-    return self.parse_root();
+    let tree = self.parse_root();
+    print_node(&tree, 0);
+    return tree;
   }
 
   fn eat(&mut self, expected: TokenType) {
@@ -492,7 +494,13 @@ fn print_node(node: &TreeNode, depth: i32) {
   else if matches!(node.n_type, NodeType::Word) {
     print!("(ε)");
   }
-  println!("]");
+  print!("]");
+
+  if node.negated {
+    print!(" negated");
+  }
+
+  println!("");
 
   for n in &node.children {
     print_node(n, depth + 1);
