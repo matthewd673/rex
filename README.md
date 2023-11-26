@@ -6,7 +6,7 @@ tiny regular expression engine
 cargo run -- test_cases.txt
 ```
 
-## Supported operators
+## Supported operations
 
 - Concatenation: `abc`
 - Union: `a|b`
@@ -14,6 +14,7 @@ cargo run -- test_cases.txt
   - One or more: `a+`
   - Zero or one: `a?`
 - Grouping: `(a|b)*`
+  - All groups are matching groups
 - Escaping: `a\*`
   - Common escape sequences: `\t`, `\n`, `\r`
 - Charsets: `[abc]`
