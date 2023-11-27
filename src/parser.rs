@@ -6,7 +6,6 @@ pub enum TokenType {
   Star,
   LParen,
   RParen,
-  Escape,
   LBracket,
   RBracket,
   Caret,
@@ -30,17 +29,30 @@ struct Scanner {
   // input: String,
   chars: Vec<char>,
   index: usize,
+  escape_seq: Vec<char>,
+}
+
+fn char_to_hex(h: char) -> u32 {
+  match h {
+    '0' => 0x0, '1' => 0x1, '2' => 0x2, '3' => 0x3, '4' => 0x4, '5' => 0x5,
+    '6' => 0x6, '7' => 0x7, '8' => 0x8, '9' => 0x9, 'a' => 0xa, 'b' => 0xb,
+    'c' => 0xc, 'd' => 0xd, 'e' => 0xe, 'f' => 0xf, _ => 0x0,
+  }
 }
 
 impl Scanner {
   fn new(input: &String) -> Self {
     let chars = input.chars().collect();
-    return Scanner { chars, index: 0usize };
+    return Scanner {
+      chars,
+      index: 0usize,
+      escape_seq: vec![],
+    };
   }
 
   fn scan_next(&mut self) -> Token {
     let t = match self.chars.get(self.index) {
-      Some(c) => char_to_token(*c),
+      Some(c) => self.char_to_token(*c),
       None => Token::new(TokenType::EOF),
     };
 
@@ -48,21 +60,79 @@ impl Scanner {
 
     return t;
   }
-}
 
-fn char_to_token(c: char) -> Token {
-  match c {
-    '|' => Token { t_type: TokenType::Union, image: c },
-    '*' => Token { t_type: TokenType::Star, image: c },
-    '(' => Token { t_type: TokenType::LParen, image: c },
-    ')' => Token { t_type: TokenType::RParen, image: c },
-    '\\' => Token { t_type: TokenType::Escape, image: c },
-    '[' => Token { t_type: TokenType::LBracket, image: c },
-    ']' => Token { t_type: TokenType::RBracket, image: c },
-    '^' => Token { t_type: TokenType::Caret, image: c },
-    '?' => Token { t_type: TokenType::Question, image: c },
-    '+' => Token { t_type: TokenType::Plus, image: c },
-    _ => Token { t_type: TokenType::Character, image: c },
+  fn handle_escape(&mut self) -> Token {
+    let mut escape_len = 0;
+    let mut unicode_hex: u32 = 0x0;
+    loop {
+      // modified scan_next procedure
+      self.index += 1;
+      let mut c;
+      match self.chars.get(self.index) {
+        Some(nc) => { c = nc; },
+        None => {
+          println!("lexical error: saw EOF while parsing escape sequence");
+          return Token { t_type: TokenType::Error, image: '\0' };
+        },
+      }
+
+      // handle one-character escape sequences
+      if escape_len == 0 {
+        match c {
+          'u' => {
+            escape_len += 1;
+          }
+          't' => { return Token { t_type: TokenType::Character, image: '\t' } },
+          'n' => { return Token { t_type: TokenType::Character, image: '\n' } },
+          'r' => { return Token { t_type: TokenType::Character, image: '\r' } },
+          _ => { return Token { t_type: TokenType::Character, image: *c } },
+        };
+      }
+      // handle multi-character (unicode) escape sequences
+      else {
+        match c {
+          '0'..='9' | 'a'..='f'  => {
+            unicode_hex = unicode_hex << 4;
+            unicode_hex |= char_to_hex(*c);
+            escape_len += 1;
+          },
+          _ => {
+            println!("lexical error: saw '{}' while parsing unicode hex", *c);
+            return Token { t_type: TokenType::Error, image: *c };
+          },
+        }
+
+        // return once code has been finished
+        if escape_len == 5 { // 'u' + 4 hex characters
+          return match char::from_u32(unicode_hex) {
+            Some(u) => {
+              println!("character: {}", u);
+              return Token { t_type: TokenType::Character, image: u };
+            }
+            None => {
+              println!("lexical error: hex is not a valid unicode character");
+              return Token { t_type: TokenType::Error, image: '\0' };
+            },
+          }
+        }
+      }
+    }
+  }
+
+  fn char_to_token(&mut self, c: char) -> Token {
+    match c {
+      '|' => Token { t_type: TokenType::Union, image: c },
+      '*' => Token { t_type: TokenType::Star, image: c },
+      '(' => Token { t_type: TokenType::LParen, image: c },
+      ')' => Token { t_type: TokenType::RParen, image: c },
+      '[' => Token { t_type: TokenType::LBracket, image: c },
+      ']' => Token { t_type: TokenType::RBracket, image: c },
+      '^' => Token { t_type: TokenType::Caret, image: c },
+      '?' => Token { t_type: TokenType::Question, image: c },
+      '+' => Token { t_type: TokenType::Plus, image: c },
+      '\\' => self.handle_escape(),
+      _ => Token { t_type: TokenType::Character, image: c },
+    }
   }
 }
 
@@ -164,7 +234,7 @@ impl Parser {
   fn eat(&mut self, expected: TokenType) {
     let t = &self.next_token;
 
-    if !matches!(&t.t_type, expected) {
+    if !matches!(&t.t_type, expected) { // TODO: why is this a warning?
       println!("syntax error: expected {:?}, saw {:?}",
                t.t_type,
                expected
@@ -175,17 +245,12 @@ impl Parser {
     }
   }
 
-  fn eat_any(&mut self) {
-    self.next_token = self.scanner.scan_next();
-  }
-
   fn parse_root(&mut self) -> TreeNode {
     match self.next_token.t_type {
       // total -> expr eof
-      TokenType::Character | TokenType::Escape |
-      TokenType::LBracket | TokenType::LParen |
-      TokenType::Union | TokenType::RParen |
-      TokenType::EOF => {
+      TokenType::Character | TokenType::LBracket |
+      TokenType::LParen | TokenType::Union |
+      TokenType::RParen | TokenType::EOF => {
         // println!("total -> expr eof");
         // create root node
         let mut root_node = TreeNode::new(NodeType::Group);
@@ -207,9 +272,8 @@ impl Parser {
   fn parse_expr(&mut self) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // expr -> seq union expr
-      TokenType::Character | TokenType::Escape |
-      TokenType::LBracket | TokenType::LParen |
-      TokenType::Union => {
+      TokenType::Character | TokenType::LBracket |
+      TokenType::LParen | TokenType::Union => {
         // println!("expr -> seq union expr");
         // create expr node
         // let mut expr_node = TreeNode::new(NodeType::Expression);
@@ -252,8 +316,8 @@ impl Parser {
   fn parse_seq(&mut self, mut prev: TreeNode) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // seq -> atom star seq
-      TokenType::Character | TokenType::Escape |
-      TokenType::LBracket | TokenType::LParen => {
+      TokenType::Character | TokenType::LBracket |
+      TokenType::LParen => {
         // println!("seq -> atom star seq");
         // continue parsing
         let atom_node = self.parse_atom();
@@ -300,7 +364,7 @@ impl Parser {
   fn parse_atom(&mut self) -> TreeNode {
     match self.next_token.t_type {
       // atom -> charater
-      TokenType::Character | TokenType::Escape => {
+      TokenType::Character => {
         return self.parse_character();
       },
       // atom -> ( expr )
@@ -342,34 +406,12 @@ impl Parser {
 
         return word_node;
       },
-      TokenType::Escape => {
-        self.eat(TokenType::Escape);
-
-        // read next token for what it really is and build word
-        let mut word_node = TreeNode::new(NodeType::Word);
-        word_node.image.push(self.handle_escape_sequence());
-
-        return word_node;
-      },
       _ => {
         println!("syntax error: saw {:?} while parsing character",
                  self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       }
     }
-  }
-
-  fn handle_escape_sequence(&mut self) -> char {
-    let c = match self.next_token.image {
-      't' => '\t',
-      'n' => '\n',
-      'r' => '\r',
-      // TODO: ascii ## and unicode \u####
-      _ => self.next_token.image,
-    };
-
-    self.eat_any();
-    return c;
   }
 
   fn parse_star(&mut self, lhs: TreeNode) -> TreeNode {
@@ -413,10 +455,9 @@ impl Parser {
         return star_node;
       },
       // star -> ε
-      TokenType::Character | TokenType::Escape |
-      TokenType::LBracket | TokenType::LParen |
-      TokenType::Union | TokenType::RParen |
-      TokenType::EOF => {
+      TokenType::Character | TokenType::LBracket |
+      TokenType::LParen | TokenType::Union |
+      TokenType::RParen | TokenType::EOF => {
         // println!("star -> ε");
         return lhs; // return lhs unmodified
       },
@@ -461,9 +502,9 @@ impl Parser {
         return union_node;
       },
       // union -> ε
-      TokenType::Character | TokenType::Escape |
-      TokenType::LBracket | TokenType::LParen |
-      TokenType::RParen | TokenType::EOF => {
+      TokenType::Character | TokenType::LBracket |
+      TokenType::LParen | TokenType::RParen |
+      TokenType::EOF => {
         // println!("union -> ε");
         return lhs; // return lhs unmodified
       },
@@ -484,7 +525,7 @@ impl Parser {
         return self.parse_charset(true);
       },
       // neg -> charset
-      TokenType::Character | TokenType::Escape => {
+      TokenType::Character => {
         return self.parse_charset(false);
       },
       _ => {
@@ -498,14 +539,13 @@ impl Parser {
   fn parse_charset(&mut self, negated: bool) -> TreeNode {
     match self.next_token.t_type {
       // charset -> character charset
-      TokenType::Character | TokenType::Escape => {
+      TokenType::Character => {
         // create new charset node
         let mut charset_node = TreeNode::new(NodeType::Charset);
         charset_node.negated = negated;
 
         // parse as many characters as possible
-        while matches!(self.next_token.t_type, TokenType::Character) |
-              matches!(self.next_token.t_type, TokenType::Escape) {
+        while matches!(self.next_token.t_type, TokenType::Character) {
           // get next character
           let mut char_node = self.parse_character();
           let c = char_node.image.pop().unwrap();
