@@ -11,17 +11,36 @@ pub enum TokenType {
   Caret,
   Question,
   Plus,
+  Range,
   EOF,
+}
+
+pub struct CharRange {
+  pub min: char,
+  pub max: char,
+}
+
+impl CharRange {
+  fn new(min: char, max: char) -> Self {
+    return CharRange { min, max };
+  }
 }
 
 pub struct Token {
   pub t_type: TokenType,
   pub image: char,
+  pub has_range: bool,
+  pub range: CharRange,
 }
 
 impl Token {
-  fn new(t_type: TokenType) -> Self {
-    return Token { t_type, image: '\0' };
+  fn new(t_type: TokenType, image: char) -> Self {
+    return Token {
+      t_type,
+      image,
+      has_range: false,
+      range: CharRange::new('\0', '\0'),
+    };
   }
 }
 
@@ -29,7 +48,6 @@ struct Scanner {
   // input: String,
   chars: Vec<char>,
   index: usize,
-  escape_seq: Vec<char>,
 }
 
 fn char_to_hex(h: char) -> u32 {
@@ -46,14 +64,13 @@ impl Scanner {
     return Scanner {
       chars,
       index: 0usize,
-      escape_seq: vec![],
     };
   }
 
   fn scan_next(&mut self) -> Token {
     let t = match self.chars.get(self.index) {
       Some(c) => self.char_to_token(*c),
-      None => Token::new(TokenType::EOF),
+      None => Token::new(TokenType::EOF, '\0'),
     };
 
     self.index += 1;
@@ -72,7 +89,7 @@ impl Scanner {
         Some(nc) => { c = nc; },
         None => {
           println!("lexical error: saw EOF while parsing escape sequence");
-          return Token { t_type: TokenType::Error, image: '\0' };
+          return Token::new(TokenType::Error, '\0');
         },
       }
 
@@ -82,10 +99,10 @@ impl Scanner {
           'u' => {
             escape_len += 1;
           }
-          't' => { return Token { t_type: TokenType::Character, image: '\t' } },
-          'n' => { return Token { t_type: TokenType::Character, image: '\n' } },
-          'r' => { return Token { t_type: TokenType::Character, image: '\r' } },
-          _ => { return Token { t_type: TokenType::Character, image: *c } },
+          't' => { return Token::new(TokenType::Character, '\t'); },
+          'n' => { return Token::new(TokenType::Character, '\n'); },
+          'r' => { return Token::new(TokenType::Character, '\r'); },
+          _ => { return Token::new(TokenType::Character, *c); },
         };
       }
       // handle multi-character (unicode) escape sequences
@@ -98,40 +115,46 @@ impl Scanner {
           },
           _ => {
             println!("lexical error: saw '{}' while parsing unicode hex", *c);
-            return Token { t_type: TokenType::Error, image: *c };
+            return Token::new(TokenType::Error, *c);
           },
         }
 
         // return once code has been finished
         if escape_len == 5 { // 'u' + 4 hex characters
           return match char::from_u32(unicode_hex) {
-            Some(u) => {
-              println!("character: {}", u);
-              return Token { t_type: TokenType::Character, image: u };
-            }
+            Some(u) => Token::new(TokenType::Character, u),
             None => {
               println!("lexical error: hex is not a valid unicode character");
-              return Token { t_type: TokenType::Error, image: '\0' };
+              return Token::new(TokenType::Error, '\0');
             },
-          }
+          };
         }
       }
     }
   }
 
   fn char_to_token(&mut self, c: char) -> Token {
+    let min_char: char = char::from_u32(0x0000).unwrap();
+    let max_char: char = char::from_u32(0xFFFF).unwrap();
+
     match c {
-      '|' => Token { t_type: TokenType::Union, image: c },
-      '*' => Token { t_type: TokenType::Star, image: c },
-      '(' => Token { t_type: TokenType::LParen, image: c },
-      ')' => Token { t_type: TokenType::RParen, image: c },
-      '[' => Token { t_type: TokenType::LBracket, image: c },
-      ']' => Token { t_type: TokenType::RBracket, image: c },
-      '^' => Token { t_type: TokenType::Caret, image: c },
-      '?' => Token { t_type: TokenType::Question, image: c },
-      '+' => Token { t_type: TokenType::Plus, image: c },
+      '|' => Token::new(TokenType::Union, c),
+      '*' => Token::new(TokenType::Star, c),
+      '(' => Token::new(TokenType::LParen, c),
+      ')' => Token::new(TokenType::RParen, c),
+      '[' => Token::new(TokenType::LBracket, c),
+      ']' => Token::new(TokenType::RBracket, c),
+      '^' => Token::new(TokenType::Caret, c),
+      '?' => Token::new(TokenType::Question, c),
+      '+' => Token::new(TokenType::Plus, c),
+      '.' => Token {
+        t_type: TokenType::Range,
+        image: c,
+        has_range: true,
+        range: CharRange::new(min_char, max_char),
+      },
       '\\' => self.handle_escape(),
-      _ => Token { t_type: TokenType::Character, image: c },
+      _ => Token::new(TokenType::Character, c),
     }
   }
 }
@@ -152,11 +175,6 @@ pub enum NodeType {
 pub struct Bounds {
   pub min: u32,
   pub max: u32,
-}
-
-pub struct CharRange {
-  pub min: char,
-  pub max: char,
 }
 
 pub struct TreeNode {
@@ -218,7 +236,7 @@ impl Parser {
 
     return Parser {
       scanner,
-      next_token: Token::new(TokenType::Error),
+      next_token: Token::new(TokenType::Error, '\0'),
     };
   }
 
@@ -248,9 +266,10 @@ impl Parser {
   fn parse_root(&mut self) -> TreeNode {
     match self.next_token.t_type {
       // total -> expr eof
-      TokenType::Character | TokenType::LBracket |
-      TokenType::LParen | TokenType::Union |
-      TokenType::RParen | TokenType::EOF => {
+      TokenType::Character | TokenType::Range |
+      TokenType::LBracket | TokenType::LParen |
+      TokenType::Union | TokenType::RParen |
+      TokenType::EOF => {
         // println!("total -> expr eof");
         // create root node
         let mut root_node = TreeNode::new(NodeType::Group);
@@ -272,8 +291,9 @@ impl Parser {
   fn parse_expr(&mut self) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // expr -> seq union expr
-      TokenType::Character | TokenType::LBracket |
-      TokenType::LParen | TokenType::Union => {
+      TokenType::Character | TokenType::Range |
+      TokenType::LBracket | TokenType::LParen |
+      TokenType::Union => {
         // println!("expr -> seq union expr");
         // create expr node
         // let mut expr_node = TreeNode::new(NodeType::Expression);
@@ -316,8 +336,8 @@ impl Parser {
   fn parse_seq(&mut self, mut prev: TreeNode) -> Vec<TreeNode> {
     match self.next_token.t_type {
       // seq -> atom star seq
-      TokenType::Character | TokenType::LBracket |
-      TokenType::LParen => {
+      TokenType::Character | TokenType::Range |
+      TokenType::LBracket | TokenType::LParen => {
         // println!("seq -> atom star seq");
         // continue parsing
         let atom_node = self.parse_atom();
@@ -365,7 +385,27 @@ impl Parser {
     match self.next_token.t_type {
       // atom -> charater
       TokenType::Character => {
-        return self.parse_character();
+        // create word node
+        let mut word_node = TreeNode::new(NodeType::Word);
+        word_node.image.push(self.next_token.image);
+
+        // continue parsing
+        self.eat(TokenType::Character);
+
+        return word_node;
+      },
+      // atom -> range
+      TokenType::Range => {
+        // create charset node
+        let mut charset_node = TreeNode::new(NodeType::Charset);
+        charset_node.ranges.push(
+          CharRange::new(self.next_token.range.min, self.next_token.range.max)
+        );
+
+        // continue parsing
+        self.eat(TokenType::Range);
+
+        return charset_node;
       },
       // atom -> ( expr )
       TokenType::LParen => {
@@ -390,27 +430,6 @@ impl Parser {
                  self.next_token.t_type);
         return TreeNode::new(NodeType::Error);
       },
-    }
-  }
-
-  fn parse_character(&mut self) -> TreeNode {
-    match self.next_token.t_type {
-      // basic character
-      TokenType::Character => {
-        // create word node
-        let mut word_node = TreeNode::new(NodeType::Word);
-        word_node.image.push(self.next_token.image);
-
-        // continue parsing
-        self.eat(TokenType::Character);
-
-        return word_node;
-      },
-      _ => {
-        println!("syntax error: saw {:?} while parsing character",
-                 self.next_token.t_type);
-        return TreeNode::new(NodeType::Error);
-      }
     }
   }
 
@@ -455,9 +474,10 @@ impl Parser {
         return star_node;
       },
       // star -> ε
-      TokenType::Character | TokenType::LBracket |
-      TokenType::LParen | TokenType::Union |
-      TokenType::RParen | TokenType::EOF => {
+      TokenType::Character | TokenType::Range |
+      TokenType::LBracket | TokenType::LParen |
+      TokenType::Union | TokenType::RParen |
+      TokenType::EOF => {
         // println!("star -> ε");
         return lhs; // return lhs unmodified
       },
@@ -502,9 +522,9 @@ impl Parser {
         return union_node;
       },
       // union -> ε
-      TokenType::Character | TokenType::LBracket |
-      TokenType::LParen | TokenType::RParen |
-      TokenType::EOF => {
+      TokenType::Character | TokenType::Range |
+      TokenType::LBracket | TokenType::LParen |
+      TokenType::RParen | TokenType::EOF => {
         // println!("union -> ε");
         return lhs; // return lhs unmodified
       },
@@ -547,8 +567,8 @@ impl Parser {
         // parse as many characters as possible
         while matches!(self.next_token.t_type, TokenType::Character) {
           // get next character
-          let mut char_node = self.parse_character();
-          let c = char_node.image.pop().unwrap();
+          let c = self.next_token.image;
+          self.eat(TokenType::Character);
 
           // turn two characters separated by a '-' into a range
           if charset_node.ranges.len() > 1 &&
@@ -562,7 +582,7 @@ impl Parser {
           }
           // just add a character to the ranges
           else {
-            charset_node.ranges.push(CharRange { min: c, max: c });
+            charset_node.ranges.push(CharRange::new(c, c));
           }
         }
 
