@@ -1,4 +1,5 @@
 mod regex;
+mod scanner;
 mod parser;
 
 use std::env;
@@ -13,7 +14,7 @@ fn execute_headless(expr: String, filename: String) {
                     .expect("Failed to load file");
   let file_lines = file_text.split("\n");
 
-  let re = regex::RegEx::new("[a-zA-Z]+({[0-9]}+)?[^0-9]?");
+  let re = regex::RegEx::new("(\\d)?[\\w-]*");
   println!("re = {}", re.expr);
   for l in file_lines {
     let match_data = re.match_all(String::from(l));

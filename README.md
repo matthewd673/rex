@@ -6,7 +6,7 @@ tiny regular expression engine
 cargo run -- test_cases.txt
 ```
 
-## Supported operations
+## Supported features
 
 - Concatenation: `abc`
 - Union: `a|b`
@@ -22,4 +22,19 @@ cargo run -- test_cases.txt
 - Charsets: `[abc]`
   - Negation: `[^xyz]`
   - Ranges: `[a-zA-Z]`
-- Wildcard: `.*`
+    - *Can* have a set of multiple character classes (e.g.: `[\s\w]`)
+    - *Can* understand when `-` is meant literally (e.g.: `[\w-]`)
+    - *Can* join characters with themselves (e.g.: `[a-a]`)
+    - *Cannot* join character classes (e.g.: `[\w-~]`)
+    - *Cannot* join characters "out of order" (e.g.: `[a-A]`)
+
+- Common Perl ASCII character classes:
+  - Any (Unicode) character: `.*`
+  - `\d`: digit (`[0-9]`)
+  - `\D`: not digit
+  - `\w`: word (`[a-zA-Z0-9_]`)
+  - `\W`: not word
+  - `\s`: whitespace (`[\n-\r]`)
+    - This range includes `\f`, which some versions of Perl do not
+  - `\S`: not whitespace
+  - `\N`: not newline (`[^\n]`)

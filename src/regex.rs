@@ -192,24 +192,13 @@ impl RegExEnv {
 
     // try to find any match in char set
     for r in &node.ranges {
-      if !node.negated &&
-         &self.chars[i] >= &r.min && &self.chars[i] <= &r.max {
+      if r.includes_char(self.chars[i]) {
         return (true, i + 1);
-      }
-      else if node.negated &&
-              (&self.chars[i] >= &r.min && &self.chars[i] <= &r.max) {
-        return (false, i);
       }
     }
 
-    // no match found for positive match (bad)
-    if !node.negated {
-      return (false, i);
-    }
-    // no match found for negative match (good)
-    else {
-      return (true, i + 1);
-    }
+    // character not included in range
+    return (false, i);
   }
 }
 

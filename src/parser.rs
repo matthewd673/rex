@@ -1,163 +1,7 @@
-#[derive(Debug)]
-pub enum TokenType {
-  Error,
-  Character,
-  Union,
-  Star,
-  LParen,
-  RParen,
-  LBracket,
-  RBracket,
-  Caret,
-  Question,
-  Plus,
-  Range,
-  EOF,
-}
-
-pub struct CharRange {
-  pub min: char,
-  pub max: char,
-}
-
-impl CharRange {
-  fn new(min: char, max: char) -> Self {
-    return CharRange { min, max };
-  }
-}
-
-pub struct Token {
-  pub t_type: TokenType,
-  pub image: char,
-  pub has_range: bool,
-  pub range: CharRange,
-}
-
-impl Token {
-  fn new(t_type: TokenType, image: char) -> Self {
-    return Token {
-      t_type,
-      image,
-      has_range: false,
-      range: CharRange::new('\0', '\0'),
-    };
-  }
-}
-
-struct Scanner {
-  // input: String,
-  chars: Vec<char>,
-  index: usize,
-}
-
-fn char_to_hex(h: char) -> u32 {
-  match h {
-    '0' => 0x0, '1' => 0x1, '2' => 0x2, '3' => 0x3, '4' => 0x4, '5' => 0x5,
-    '6' => 0x6, '7' => 0x7, '8' => 0x8, '9' => 0x9, 'a' => 0xa, 'b' => 0xb,
-    'c' => 0xc, 'd' => 0xd, 'e' => 0xe, 'f' => 0xf, _ => 0x0,
-  }
-}
-
-impl Scanner {
-  fn new(input: &String) -> Self {
-    let chars = input.chars().collect();
-    return Scanner {
-      chars,
-      index: 0usize,
-    };
-  }
-
-  fn scan_next(&mut self) -> Token {
-    let t = match self.chars.get(self.index) {
-      Some(c) => self.char_to_token(*c),
-      None => Token::new(TokenType::EOF, '\0'),
-    };
-
-    self.index += 1;
-
-    return t;
-  }
-
-  fn handle_escape(&mut self) -> Token {
-    let mut escape_len = 0;
-    let mut unicode_hex: u32 = 0x0;
-    loop {
-      // modified scan_next procedure
-      self.index += 1;
-      let mut c;
-      match self.chars.get(self.index) {
-        Some(nc) => { c = nc; },
-        None => {
-          println!("lexical error: saw EOF while parsing escape sequence");
-          return Token::new(TokenType::Error, '\0');
-        },
-      }
-
-      // handle one-character escape sequences
-      if escape_len == 0 {
-        match c {
-          'u' => {
-            escape_len += 1;
-          }
-          't' => { return Token::new(TokenType::Character, '\t'); },
-          'n' => { return Token::new(TokenType::Character, '\n'); },
-          'r' => { return Token::new(TokenType::Character, '\r'); },
-          _ => { return Token::new(TokenType::Character, *c); },
-        };
-      }
-      // handle multi-character (unicode) escape sequences
-      else {
-        match c {
-          '0'..='9' | 'a'..='f'  => {
-            unicode_hex = unicode_hex << 4;
-            unicode_hex |= char_to_hex(*c);
-            escape_len += 1;
-          },
-          _ => {
-            println!("lexical error: saw '{}' while parsing unicode hex", *c);
-            return Token::new(TokenType::Error, *c);
-          },
-        }
-
-        // return once code has been finished
-        if escape_len == 5 { // 'u' + 4 hex characters
-          return match char::from_u32(unicode_hex) {
-            Some(u) => Token::new(TokenType::Character, u),
-            None => {
-              println!("lexical error: hex is not a valid unicode character");
-              return Token::new(TokenType::Error, '\0');
-            },
-          };
-        }
-      }
-    }
-  }
-
-  fn char_to_token(&mut self, c: char) -> Token {
-    let min_char: char = char::from_u32(0x0000).unwrap();
-    let max_char: char = char::from_u32(0xFFFF).unwrap();
-
-    match c {
-      '|' => Token::new(TokenType::Union, c),
-      '*' => Token::new(TokenType::Star, c),
-      '(' => Token::new(TokenType::LParen, c),
-      ')' => Token::new(TokenType::RParen, c),
-      '[' => Token::new(TokenType::LBracket, c),
-      ']' => Token::new(TokenType::RBracket, c),
-      '^' => Token::new(TokenType::Caret, c),
-      '?' => Token::new(TokenType::Question, c),
-      '+' => Token::new(TokenType::Plus, c),
-      '.' => Token {
-        t_type: TokenType::Range,
-        image: c,
-        has_range: true,
-        range: CharRange::new(min_char, max_char),
-      },
-      '\\' => self.handle_escape(),
-      _ => Token::new(TokenType::Character, c),
-    }
-  }
-}
+use crate::scanner::TokenType;
+use crate::scanner::Token;
+use crate::scanner::CharRange;
+use crate::scanner::Scanner;
 
 #[derive(Debug)]
 pub enum NodeType {
@@ -180,10 +24,9 @@ pub struct Bounds {
 pub struct TreeNode {
   pub n_type: NodeType,
   pub children: Vec<TreeNode>,
-  pub image: Vec<char>,     // used by Words
-  pub repeats: Bounds,      // used by Star-likes (?, etc.)
-  pub negated: bool,        // used by Charsets
-  pub ranges: Vec<CharRange>,  // used by Charsets
+  pub image: Vec<char>,         // used by Words
+  pub repeats: Bounds,          // used by Star-likes (?, +, etc.)
+  pub ranges: Vec<CharRange>,   // used by Charsets
 }
 
 impl TreeNode {
@@ -193,7 +36,6 @@ impl TreeNode {
       children: vec![],
       image: vec![],
       repeats: Bounds { min: 0, max: 0 },
-      negated: false,
       ranges: vec![],
     };
   }
@@ -260,6 +102,7 @@ impl Parser {
     }
     else {
       self.next_token = self.scanner.scan_next();
+      println!("got: {:?}", self.next_token.t_type);
     }
   }
 
@@ -295,15 +138,12 @@ impl Parser {
       TokenType::LBracket | TokenType::LParen |
       TokenType::Union => {
         // println!("expr -> seq union expr");
-        // create expr node
-        // let mut expr_node = TreeNode::new(NodeType::Expression);
         let mut child_vec = vec![];
 
         // continue parsing
         let mut sequence = self.parse_seq(TreeNode::new(NodeType::Empty));
 
         let union_node;
-        // println!("seq length!: {}", sequence.len());
         if sequence.len() == 1 {
           let first = sequence.pop().unwrap(); // pop to move [0] out of vec
           union_node = self.parse_union(first);
@@ -398,9 +238,9 @@ impl Parser {
       TokenType::Range => {
         // create charset node
         let mut charset_node = TreeNode::new(NodeType::Charset);
-        charset_node.ranges.push(
-          CharRange::new(self.next_token.range.min, self.next_token.range.max)
-        );
+        while self.next_token.range.len() > 0 {
+          charset_node.ranges.push(self.next_token.range.pop().unwrap());
+        }
 
         // continue parsing
         self.eat(TokenType::Range);
@@ -545,7 +385,7 @@ impl Parser {
         return self.parse_charset(true);
       },
       // neg -> charset
-      TokenType::Character => {
+      TokenType::Character | TokenType::Range => {
         return self.parse_charset(false);
       },
       _ => {
@@ -559,30 +399,112 @@ impl Parser {
   fn parse_charset(&mut self, negated: bool) -> TreeNode {
     match self.next_token.t_type {
       // charset -> character charset
-      TokenType::Character => {
+      TokenType::Character | TokenType::Range => {
         // create new charset node
         let mut charset_node = TreeNode::new(NodeType::Charset);
-        charset_node.negated = negated;
 
-        // parse as many characters as possible
-        while matches!(self.next_token.t_type, TokenType::Character) {
-          // get next character
-          let c = self.next_token.image;
-          self.eat(TokenType::Character);
+        let mut last_type = TokenType::Error; // Error is just a default
+        let mut last_char = 0x0000;
+        let mut try_join = false; // if we see a '-', mark a potential range
+        // if we see a range and then a '-' be ready to throw an error
+        let mut try_throw_bad_join = false;
 
-          // turn two characters separated by a '-' into a range
-          if charset_node.ranges.len() > 1 &&
-             charset_node.ranges.last().unwrap().min == '-' {
-             // remove the dash
-             charset_node.ranges.pop();
-             // modify the previous char into a range
-             let mut prev_range = charset_node.ranges.pop().unwrap();
-             prev_range.max = c;
-             charset_node.ranges.push(prev_range);
-          }
-          // just add a character to the ranges
-          else {
-            charset_node.ranges.push(CharRange::new(c, c));
+        // parse as many characters/ranges as possible
+        loop {
+          match self.next_token.t_type {
+            TokenType::Character => {
+              // stop right away if a bad join is in progress
+              if try_throw_bad_join {
+                println!("syntax error: invalid '-' in charset");
+                return TreeNode::new(NodeType::Error);
+              }
+
+              // get next character
+              let c = self.next_token.image;
+              self.eat(TokenType::Character);
+
+              // either add a new discrete character to the set
+              // or join it with a previous character
+              let mut did_join = false;
+              if try_join {
+                // perform join
+                charset_node.ranges.pop(); // remove '-' discrete char
+                // turn preceding discrete character into range
+                let mut prev_range = charset_node.ranges.pop().unwrap();
+                prev_range.max = c as u32;
+
+                // make sure ordering is correct
+                if prev_range.min > prev_range.max {
+                  println!("syntax error: invalid range, {} > {}",
+                           prev_range.min, prev_range.max);
+                  return TreeNode::new(NodeType::Error);
+                }
+
+                charset_node.ranges.push(prev_range);
+
+                did_join = true;
+              }
+              // add discrete character
+              else {
+                charset_node.ranges.push(
+                  CharRange::new(c as u32, c as u32, negated)
+                  );
+                last_char = c as u32;
+              }
+
+              // if you see a '-' and the previous token before was a character
+              // then it may be possible to join that character with the next
+              // character to create a range
+              if c == '-' && !did_join &&
+                 matches!(last_type, TokenType::Character) {
+                try_join = true;
+              }
+              // its possible that an illegal join is being attempted
+              else if c == '-' && !did_join &&
+                 matches!(last_type, TokenType::Range) {
+                try_throw_bad_join = true;
+              }
+
+              // keep track of last type
+              if !did_join {
+                last_type = TokenType::Character;
+              }
+              // if we just performed a join, pretend the last token wasn't
+              // a character to prevent chaining joins together
+              else {
+                last_type = TokenType::Error; // Error is a default
+              }
+            },
+            // NOTE: wildcard '.' will be treated as a range
+            //   however, in PCRE2 '.' in a charset is treated as '.' literal
+            TokenType::Range => {
+              // stop right away if a bad join is in progress
+              if try_throw_bad_join {
+                println!("syntax error: invalid '-' in charset");
+                return TreeNode::new(NodeType::Error);
+              }
+
+              // add everything in this range to the charset
+              while self.next_token.range.len() > 0 {
+                charset_node.ranges.push(self.next_token.range.pop().unwrap());
+              }
+
+              // you can never join a range with '-', throw error
+              if try_join {
+                println!("syntax error: invalid '-' in charset");
+                return TreeNode::new(NodeType::Error);
+              }
+
+              // continue parsing
+              self.eat(TokenType::Range);
+
+              // keep track of last type
+              last_type = TokenType::Range;
+            },
+            // end loop
+            _ => {
+              break;
+            }
           }
         }
 
@@ -624,10 +546,6 @@ fn print_node(node: &TreeNode, depth: i32) {
     print!("(ε)");
   }
   print!("]");
-
-  if node.negated {
-    print!(" negated");
-  }
 
   println!("");
 
