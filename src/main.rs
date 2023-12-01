@@ -1,6 +1,7 @@
 mod regex;
 mod scanner;
 mod parser;
+mod tui;
 
 use std::env;
 use std::fs;
@@ -14,7 +15,7 @@ fn execute_headless(expr: String, filename: String) {
                     .expect("Failed to load file");
   let file_lines = file_text.split("\n");
 
-  let re = regex::RegEx::new("(\\d)?[\\w-]*");
+  let re = regex::RegEx::new("\\u0061b");
   println!("re = {}", re.expr);
   for l in file_lines {
     let match_data = re.match_all(String::from(l));
@@ -30,15 +31,19 @@ fn execute_headless(expr: String, filename: String) {
 fn main() {
   println!("rex - tiny regular expression engine\n");
 
+  let style_error = tui::TextStyle { foreground: tui::Color::RED, bold: true };
+
   // parse args
   let mut args: Vec<String> = env::args().collect();
   // no args given, open interactive
   if args.len() < 1 {
+    style_error.apply();
     println!("TODO: interactive");
   }
   // if one arg, then thats the filename
   // open it in interactive
   else if args.len() == 1 {
+    style_error.apply();
     println!("TODO: interactive");
   }
   // if two or more args then first two are regex and filename

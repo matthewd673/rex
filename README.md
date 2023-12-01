@@ -17,9 +17,10 @@ cargo run -- test_cases.txt
   - All groups are matching groups
 - Escaping: `a\*`
   - Common escape codes: `\t`, `\n`, `\r`
-  - Unicode escape codes: `\u0061`
-    - Unicode characters spanning multiple bytes will fail to interpret
-  - Ascii escape codes (hex or dec): `\x61`, `\97`)
+  - Unicode escape codes: `\u2603`
+    - Multi-character Unicode will fail to interpret
+  - Ascii escape codes (hex or dec): `\x61`, `\97`
+    - Ascii escape codes will always be valid: `\x61b` = `ab`, `\971` = `a1`
 - Charsets: `[abc]`
   - Negation: `[^xyz]`
   - Ranges: `[a-zA-Z]`
