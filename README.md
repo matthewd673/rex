@@ -16,9 +16,10 @@ cargo run -- test_cases.txt
 - Grouping: `(a|b)*`
   - All groups are matching groups
 - Escaping: `a\*`
-  - Common escape sequences: `\t`, `\n`, `\r`
-  - Unicode escape sequences: `\u0061`
+  - Common escape codes: `\t`, `\n`, `\r`
+  - Unicode escape codes: `\u0061`
     - Unicode characters spanning multiple bytes will fail to interpret
+  - Ascii escape codes (hex or dec): `\x61`, `\97`)
 - Charsets: `[abc]`
   - Negation: `[^xyz]`
   - Ranges: `[a-zA-Z]`

@@ -105,6 +105,7 @@ enum EscapeType {
   Basic,
   UnicodeHex,
   AsciiDec,
+  AsciiHex,
 }
 
 fn char_to_hex(h: char) -> u32 {
@@ -138,7 +139,8 @@ impl Scanner {
   fn handle_escape(&mut self) -> Token {
     let mut escape_len = 0;
     let mut escape_type = EscapeType::Basic;
-    let mut unicode_hex: u32 = 0x0;
+    let mut unicode_code: u32 = 0x0;
+    let mut ascii_code: u32 = 0x0;
     loop {
       // modified scan_next procedure
       self.index += 1;
@@ -146,18 +148,35 @@ impl Scanner {
       match self.chars.get(self.index) {
         Some(nc) => { c = nc; },
         None => {
-          println!("lexical error: saw EOF while parsing escape sequence");
-          return Token::new(TokenType::Error, '\0');
+          if escape_len == 0 {
+            println!("lexical error: saw EOF while parsing escape sequence");
+            return Token::new(TokenType::Error, '\0');
+          }
+          // EOF can be handled by escape code parsers
+          else {
+            c = &'\0';
+          }
         },
       }
 
       // handle one-character escape sequences
       if escape_len == 0 {
         match c {
-          // begin unicode sequence
+          // begin unicode hex sequence
           'u' => {
+            escape_type = EscapeType::UnicodeHex;
             escape_len += 1;
-          }
+          },
+          'x' => {
+            escape_type = EscapeType::AsciiHex;
+            escape_len += 1;
+          },
+          '0'..='9' => {
+            escape_type = EscapeType::AsciiDec;
+            escape_len += 1;
+            // un-consume character so it can be handled
+            self.index -= 1;
+          },
           // TODO: ascii number sequences
           // "basic" escapes
           't' => { return Token::new(TokenType::Character, '\t'); },
@@ -215,33 +234,120 @@ impl Scanner {
           }
           // no special meaning, just return character
           // NOTE: this means something like \y - which isn't a valid escape
-          // sequence - would parse as "y" instead of throwing an error
+          //   sequence - would parse as "y" instead of throwing an error
           _ => { return Token::new(TokenType::Character, *c); },
         };
       }
       // handle multi-character (unicode) escape sequences
       else {
-        match c {
-          '0'..='9' | 'a'..='f'  => {
-            unicode_hex = unicode_hex << 4;
-            unicode_hex |= char_to_hex(*c);
-            escape_len += 1;
+        let mut completed_code = false;
+
+        match escape_type {
+          EscapeType::Basic => {
+            // Empty - this will never occur
           },
-          _ => {
-            println!("lexical error: saw '{}' while parsing unicode hex", *c);
-            return Token::new(TokenType::Error, *c);
+          EscapeType::UnicodeHex => 'unicode_hex_match: {
+            if escape_len == 5 {
+              completed_code = true;
+              break 'unicode_hex_match;
+            }
+            match c {
+              '0'..='9' | 'a'..='f' => {
+                unicode_code = unicode_code << 4;
+                unicode_code |= char_to_hex(*c);
+                escape_len += 1;
+              },
+              _ => {
+                println!("lexical error: saw '{}' while parsing unicode hex",
+                         *c);
+                return Token::new(TokenType::Error, *c);
+              },
+            }
           },
+          EscapeType::AsciiHex => 'ascii_hex_match: {
+            // sequence must be done within 3, un-consume and break
+            if escape_len == 3 {
+              completed_code = true;
+              break 'ascii_hex_match;
+            }
+            match c {
+              '0'..='9' | 'a'..='f' => {
+                let mut temp_ascii_code = ascii_code << 4;
+                temp_ascii_code |= char_to_hex(*c);
+
+                // if we reach the max value within 3 digits (e.g.: "234")
+                // then un-consume the current character and complete the code
+                if temp_ascii_code > 127 {
+                  completed_code = true;
+                  break 'ascii_hex_match;
+                }
+
+                ascii_code = temp_ascii_code;
+                escape_len += 1;
+              },
+              // otherwise, just un-consume character and break early
+              _ => {
+                completed_code = true;
+              }
+            }
+          },
+          EscapeType::AsciiDec => 'ascii_dec_match: {
+            if escape_len == 3{
+              completed_code = true;
+              break 'ascii_dec_match;
+            }
+            match c {
+              '0'..='9' => {
+                let mut temp_ascii_code = ascii_code * 10;
+                temp_ascii_code += char_to_hex(*c); // this does char->digit too
+
+                // if we reach the max value, un-consume and break
+                if temp_ascii_code > 127 {
+                  completed_code = true;
+                  break 'ascii_dec_match;
+                }
+
+                ascii_code = temp_ascii_code;
+                escape_len += 1;
+              }
+              // otherwise, just un-consume character and break early
+              _ => {
+                completed_code = true;
+              }
+            }
+          }
         }
 
         // return once code has been finished
-        if escape_len == 5 { // 'u' + 4 hex characters
-          return match char::from_u32(unicode_hex) {
-            Some(u) => Token::new(TokenType::Character, u),
-            None => {
-              println!("lexical error: hex is not a valid unicode character");
-              return Token::new(TokenType::Error, '\0');
+        if completed_code {
+          // un-consume the last character - it was not part of the code
+          self.index -= 1;
+
+          // convert code to unicode char
+          match escape_type {
+            EscapeType::UnicodeHex => {
+              return match char::from_u32(unicode_code) {
+                Some(u) => Token::new(TokenType::Character, u),
+                None => {
+                  println!("lexical error: invalid unicode escape code");
+                  return Token::new(TokenType::Error, '\0');
+                },
+              };
             },
-          };
+            EscapeType::AsciiHex | EscapeType::AsciiDec => {
+              return match char::from_u32(ascii_code) {
+                Some(a) => Token::new(TokenType::Character, a),
+                // invalid characters should already be caught in the loop
+                None => {
+                  println!("lexical error: invalid ascii escape code");
+                  return Token::new(TokenType::Error, '\0');
+                }
+              };
+            },
+            _ => {
+              // Empty - this should never happen
+            },
+          }
         }
       }
     }
