@@ -2,9 +2,18 @@
 
 tiny regular expression engine
 
+## Build & run
+
 ```
-cargo run -- test_cases.txt
+cargo build
 ```
+
+```
+./rex <input file> <expression> [options]
+```
+
+Arguments can be provided in any order. For some shells, expressions must be
+wrapped in quotation marks.
 
 ## Supported features
 
@@ -40,3 +49,7 @@ cargo run -- test_cases.txt
     - This range includes `\f`, which some versions of Perl do not
   - `\S`: not whitespace
   - `\N`: not newline (`[^\n]`)
+
+## Execution options
+
+- `-ng`/`--no-groups`: don't print matching groups
