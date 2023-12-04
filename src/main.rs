@@ -5,18 +5,17 @@ mod tui;
 
 use std::env;
 use std::fs;
+use std::path::Path;
+use std::collections::VecDeque;
 
-fn execute_headless(expr: String, filename: String) {
-  println!("expr: {}", expr);
-  println!("filename: {}", filename);
+fn execute_headless(filename: String, expr: String) {
   // load file from args
   // TODO: better handling for load failed
   let file_text = fs::read_to_string(&filename)
-                    .expect("Failed to load file");
+                      .expect("Failed to load file");
   let file_lines = file_text.split("\n");
 
-  let re = regex::RegEx::new("\\u0061b");
-  println!("re = {}", re.expr);
+  let re = regex::RegEx::new(&expr);
   for l in file_lines {
     let match_data = re.match_all(String::from(l));
     for m in match_data {
@@ -28,26 +27,52 @@ fn execute_headless(expr: String, filename: String) {
   }
 }
 
+fn execute_interactive(filename: String) {
+  println!("TODO: interactive");
+}
+
+fn parse_args() {
+  let mut args: VecDeque<String> = env::args().collect();
+  let mut expr: Option<String> = None;
+  let mut filename: Option<String> = None;
+
+  args.pop_front(); // skip first arg (executable path)
+
+  while args.len() > 0 {
+    let a = args.pop_front().unwrap();
+    // if no filename, try to find one
+    if matches!(filename, None) {
+      let potential_path = Path::new(&a);
+      // is a filename set it
+      if potential_path.is_file() {
+        filename = Some(a);
+        continue;
+      }
+    }
+
+    // otherwise, assume its an expression
+    if matches!(expr, None) {
+      expr = Some(a);
+      continue;
+    }
+
+    println!("too many arguments");
+  }
+
+  // choose mode based on provided args
+  match (filename, expr) {
+    (Some(f), Some(e)) => {
+      execute_headless(f, e);
+    },
+    (Some(f), None) => {
+      execute_interactive(f);
+    },
+    _ => {
+      println!("invalid argument set");
+    }
+  }
+}
+
 fn main() {
-  println!("rex - tiny regular expression engine\n");
-
-  let style_error = tui::TextStyle { foreground: tui::Color::RED, bold: true };
-
-  // parse args
-  let mut args: Vec<String> = env::args().collect();
-  // no args given, open interactive
-  if args.len() < 1 {
-    style_error.apply();
-    println!("TODO: interactive");
-  }
-  // if one arg, then thats the filename
-  // open it in interactive
-  else if args.len() == 1 {
-    style_error.apply();
-    println!("TODO: interactive");
-  }
-  // if two or more args then first two are regex and filename
-  else if args.len() > 1 {
-    execute_headless(args.pop().unwrap(), args.pop().unwrap());
-  }
+  parse_args();
 }

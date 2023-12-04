@@ -87,7 +87,7 @@ impl Parser {
     self.next_token = self.scanner.scan_next();
     // parse
     let tree = self.parse_root();
-    print_node(&tree, 0);
+    // print_node(&tree, 0);
     return tree;
   }
 
@@ -102,7 +102,6 @@ impl Parser {
     }
     else {
       self.next_token = self.scanner.scan_next();
-      println!("got: {:?}", self.next_token.t_type);
     }
   }
 
