@@ -7,15 +7,18 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use std::collections::VecDeque;
+use std::time::Instant;
 
 struct ExecOptions {
   no_groups: bool,  // don't print matching groups
+  benchmark: bool,  // print a benchmark for execution time
 }
 
 impl ExecOptions {
   fn new() -> Self {
     return ExecOptions {
       no_groups: false,
+      benchmark: false,
     };
   }
 }
@@ -27,9 +30,17 @@ fn execute_headless(filename: String, expr: String, options: &ExecOptions) {
                       .expect("Failed to load file");
   let file_lines = file_text.split("\n");
 
+  let start_time = Instant::now();
+
   let re = regex::RegEx::new(&expr);
   for l in file_lines {
     let match_data = re.match_all(String::from(l));
+
+    // don't print if benchmarking -- waste of time
+    if options.benchmark {
+      continue;
+    }
+
     for m in match_data {
       println!("{}", m.groups[0].string);
       if !options.no_groups {
@@ -38,6 +49,11 @@ fn execute_headless(filename: String, expr: String, options: &ExecOptions) {
         }
       }
     }
+  }
+
+  let elapsed_time = start_time.elapsed();
+  if options.benchmark {
+    println!("Execution time: {:.2?}", elapsed_time);
   }
 }
 
@@ -60,6 +76,9 @@ fn parse_args() {
     // check for flags
     if &a == "-ng" || &a == "--no-groups" {
       options.no_groups = true;
+    }
+    if &a == "-b" || &a == "--benchmark" {
+      options.benchmark = true;
     }
 
     // if no filename, try to find one

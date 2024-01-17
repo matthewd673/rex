@@ -15,6 +15,11 @@ cargo build
 Arguments can be provided in any order. For some shells, expressions must be
 wrapped in quotation marks.
 
+## Execution options
+
+- `-ng`/`--no-groups`: Ignore matching groups (order of operations still applies).
+- `-b`/`--benchmark`: Benchmark performance (results will not be printed).
+
 ## Supported features
 
 - Concatenation: `abc`
@@ -49,7 +54,3 @@ wrapped in quotation marks.
     - This range includes `\f`, which some versions of Perl do not
   - `\S`: not whitespace
   - `\N`: not newline (`[^\n]`)
-
-## Execution options
-
-- `-ng`/`--no-groups`: don't print matching groups
