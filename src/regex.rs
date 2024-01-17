@@ -41,7 +41,7 @@ impl RegExEnv {
     };
   }
 
-  fn interpret(&mut self, tree: &TreeNode, start: usize) -> usize {
+  fn interpret(&mut self, tree: &TreeNode, start: usize) -> (bool, usize) {
     let mut new_match = MatchData::new(start, 0);
     let (success, end) = self.interpret_node(tree, start, &mut new_match);
 
@@ -54,9 +54,13 @@ impl RegExEnv {
           string: String::from(&self.string[start..end]),
       });
       self.matches.push(new_match);
-    }
 
-    return end;
+      return (success, end);
+    }
+    // if attempt failed, end = start and match_all will enter infinite loop
+    else {
+      return (success, end + 1);
+    }
   }
 
   fn print_chars(&self, i: usize) -> String {
@@ -214,13 +218,113 @@ impl RegEx {
     return RegEx { expr, tree: parser.parse() };
   }
 
+  pub fn match_first(&self, s: String) -> Option<MatchData> {
+    let mut m = RegExEnv::new(s);
+    let mut start = 0;
+    while start < m.string.len() {
+      let (success, end) = m.interpret(&self.tree, start);
+      start = end;
+
+      // return as soon as a match is found
+      if success {
+        return m.matches.pop(); // if its mysteriously missing this still works
+      }
+    }
+
+    // nothing was found
+    return None;
+  }
+
   pub fn match_all(&self, s: String) -> Vec<MatchData> {
     let mut m = RegExEnv::new(s);
     let mut start = 0;
     while start < m.string.len() {
-      start = m.interpret(&self.tree, start) + 1;
+      let (_, end) = m.interpret(&self.tree, start);
+      start = end;
     }
 
     return m.matches;
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn match_character() {
+    let r = RegEx::new("a");
+    let m = r.match_first(String::from("a"));
+
+    assert!(m.is_some());
+
+    let mu = m.unwrap();
+    assert_eq!(mu.start, 0);
+    assert_eq!(mu.end, 1);
+  }
+
+  #[test]
+  fn miss_character() {
+    let r = RegEx::new("b");
+    let m = r.match_first(String::from("a"));
+    assert!(m.is_none());
+  }
+
+  #[test]
+  fn match_all_characters() {
+    let r = RegEx::new("a");
+    let m = r.match_all(String::from("aaaaa"));
+    assert_eq!(m.len(), 5);
+
+    for i in 0..m.len() {
+      assert_eq!(m[i].start, i);
+      assert_eq!(m[i].end, i + 1);
+    }
+  }
+
+  #[test]
+  fn miss_all_characters() {
+    let r = RegEx::new("b");
+    let m = r.match_all(String::from("aaaaa"));
+    assert_eq!(m.len(), 0);
+  }
+
+  #[test]
+  fn match_sequence() {
+    let r = RegEx::new("abc");
+    let m = r.match_first(String::from("abc"));
+    assert!(m.is_some());
+
+    let mu = m.unwrap();
+
+    assert_eq!(mu.start, 0);
+    assert_eq!(mu.end, 3);
+  }
+
+  #[test]
+  fn miss_sequence() {
+    let r = RegEx::new("abc");
+    let m = r.match_first(String::from("axc"));
+    assert!(m.is_none());
+  }
+
+  #[test]
+  fn match_all_sequences() {
+    let r = RegEx::new("abc");
+    let m = r.match_all(String::from("abcabcabc"));
+
+    assert_eq!(m.len(), 3);
+
+    for i in 0..m.len() {
+      assert_eq!(m[i].start, i * 3);
+      assert_eq!(m[i].end, i * 3 + 3);
+    }
+  }
+
+  #[test]
+  fn miss_all_sequences() {
+    let r = RegEx::new("abc");
+    let m = r.match_all(String::from("axcxbcabx"));
+    assert_eq!(m.len(), 0);
   }
 }
