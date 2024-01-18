@@ -5,15 +5,24 @@ tiny regular expression engine
 ## Build & run
 
 ```
-cargo build
+cargo run -- <input file> <expression> [options]
 ```
 
+Or, to build a binary:
+
 ```
+cargo build
 ./rex <input file> <expression> [options]
 ```
 
-Arguments can be provided in any order. For some shells, expressions must be
-wrapped in quotation marks.
+Arguments can be provided in any order. For some shells (like zsh) expressions
+should be wrapped in quotation marks.
+
+## Testing
+
+```
+cargo test
+```
 
 ## Execution options
 
