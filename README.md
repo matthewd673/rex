@@ -40,7 +40,7 @@ cargo test
 - Grouping: `(a|b)*`
   - All groups are matching groups
 - Escaping: `a\*`
-  - Common escape codes: `\t`, `\n`, `\r`
+  - Common escape codes: `\t`, `\n`, `\v`, `\f`, `\r`
   - Unicode escape codes: `\u2603`
     - Multi-character Unicode will compile but fail to interpret *(TODO)*
   - Ascii escape codes (hex or dec): `\x61`, `\97`

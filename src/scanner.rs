@@ -96,7 +96,6 @@ impl Token {
 }
 
 pub struct Scanner {
-  // input: String,
   chars: Vec<char>,
   index: usize,
 }
@@ -180,6 +179,8 @@ impl Scanner {
           // "basic" escapes
           't' => { return Token::new(TokenType::Character, '\t'); },
           'n' => { return Token::new(TokenType::Character, '\n'); },
+          'v' => { return Token::new(TokenType::Character, '\x0b'); },
+          'f' => { return Token::new(TokenType::Character, '\x0c'); },
           'r' => { return Token::new(TokenType::Character, '\r'); },
           // Perl character classes
           'd' => {
@@ -232,7 +233,7 @@ impl Scanner {
             };
           }
           // no special meaning, just return character
-          // NOTE: this means something like \y - which isn't a valid escape
+          // TODO: this means something like \y - which isn't a valid escape
           //   sequence - would parse as "y" instead of throwing an error
           _ => { return Token::new(TokenType::Character, *c); },
         };
@@ -371,5 +372,54 @@ impl Scanner {
       '\\' => self.handle_escape(),
       _ => Token::new(TokenType::Character, c),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn scan_all(s: &mut Scanner) -> Vec<Token> {
+    let mut tokens = vec![];
+    while s.index <= s.chars.len() {
+      tokens.push(s.scan_next());
+    }
+
+    return tokens;
+  }
+
+  fn test_token_types(tokens: &Vec<Token>, t_types: Vec<TokenType>) {
+    assert_eq!(tokens.len(), t_types.len());
+
+    for i in 0..tokens.len() {
+      let a = &tokens[i].t_type;
+      let b = &t_types[i];
+      assert!(matches!(a, b));
+    }
+  }
+
+  fn test_token_images(tokens: &Vec<Token>, images: Vec<char>) {
+    assert_eq!(tokens.len(), images.len());
+
+    for i in 0..tokens.len() {
+      let a = &tokens[i].image;
+      let b = &images[i];
+      assert_eq!(a, b);
+    }
+  }
+
+  #[test]
+  fn scan_characters() {
+    let mut s = Scanner::new(&String::from("abc"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::EOF]
+                          );
+    test_token_images(&tokens,
+                      vec!['a', 'b', 'c', '\0']
+                      );
   }
 }
