@@ -177,7 +177,6 @@ impl Scanner {
             // un-consume character so it can be handled
             self.index -= 1;
           },
-          // TODO: ascii number sequences
           // "basic" escapes
           't' => { return Token::new(TokenType::Character, '\t'); },
           'n' => { return Token::new(TokenType::Character, '\n'); },

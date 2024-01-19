@@ -1,6 +1,7 @@
 # rex
 
-tiny regular expression engine
+Rex is a tiny regular expression engine written in Rust.
+It features a parser and interpreter and supports many common RegEx features.
 
 ## Build & run
 
@@ -41,7 +42,7 @@ cargo test
 - Escaping: `a\*`
   - Common escape codes: `\t`, `\n`, `\r`
   - Unicode escape codes: `\u2603`
-    - Multi-character Unicode will fail to interpret
+    - Multi-character Unicode will compile but fail to interpret *(TODO)*
   - Ascii escape codes (hex or dec): `\x61`, `\97`
     - Ascii escape codes will always be valid: `\x61b` = `ab`, `\971` = `a1`
 - Charsets: `[abc]`
@@ -53,8 +54,8 @@ cargo test
     - *Cannot* join character classes (e.g.: `[\w-~]`)
     - *Cannot* join characters "out of order" (e.g.: `[a-A]`)
 
-- Common Perl ASCII character classes:
-  - Any (Unicode) character: `.*`
+- Common Perl *ASCII* character classes:
+  - `.`: Any *Unicode* character (including `\n`)
   - `\d`: digit (`[0-9]`)
   - `\D`: not digit
   - `\w`: word (`[a-zA-Z0-9_]`)

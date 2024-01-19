@@ -226,7 +226,7 @@ impl RegEx {
   pub fn match_first(&self, s: String) -> Option<MatchData> {
     let mut m = RegExEnv::new(s);
     let mut start = 0;
-    while start < m.string.len() {
+    while start <= m.string.len() {
       let (success, end) = m.interpret(&self.tree, start);
       start = end;
 
@@ -257,7 +257,7 @@ mod test {
   use super::*;
 
   #[test]
-  fn match_character() {
+  fn match_first_character() {
     let r = RegEx::new("a");
     let m = r.match_first(String::from("a"));
 
@@ -269,7 +269,7 @@ mod test {
   }
 
   #[test]
-  fn miss_character() {
+  fn miss_first_character() {
     let r = RegEx::new("b");
     let m = r.match_first(String::from("a"));
     assert!(m.is_none());
@@ -295,7 +295,7 @@ mod test {
   }
 
   #[test]
-  fn match_sequence() {
+  fn match_first_sequence() {
     let r = RegEx::new("abc");
     let m = r.match_first(String::from("abc"));
     assert!(m.is_some());
@@ -307,7 +307,7 @@ mod test {
   }
 
   #[test]
-  fn miss_sequence() {
+  fn miss_first_sequence() {
     let r = RegEx::new("abc");
     let m = r.match_first(String::from("axc"));
     assert!(m.is_none());
@@ -334,7 +334,7 @@ mod test {
   }
 
   #[test]
-  fn match_sequence_union() {
+  fn match_first_sequence_union() {
     let r = RegEx::new("abc|xyz");
     let m = r.match_first(String::from("ab_xyzabc"));
     assert!(m.is_some());
@@ -346,7 +346,7 @@ mod test {
   }
 
   #[test]
-  fn miss_sequence_union() {
+  fn miss_first_sequence_union() {
     let r = RegEx::new("abc|xyz");
     let m = r.match_first(String::from("aaaaaa"));
     assert!(m.is_none());
@@ -372,7 +372,7 @@ mod test {
   }
 
   #[test]
-  fn match_character_kleene_exists() {
+  fn match_first_character_kleene_exists() {
     let r = RegEx::new("a*");
     let m = r.match_first(String::from("aaaa"));
     assert!(m.is_some());
@@ -383,12 +383,12 @@ mod test {
     assert_eq!(mu.end, 4);
   }
 
-  // NOTE: match_character_kleene_exists cannot miss
+  // NOTE: match_first_character_kleene_exists cannot miss
 
   #[test]
-  fn match_character_kleene_doesnt_exist() {
+  fn match_first_character_kleene_doesnt_exist() {
     let r = RegEx::new("a*");
-    let m = r.match_first(String::from("bbbb"));
+    let m = r.match_first(String::from(""));
     assert!(m.is_some());
 
     let mu = m.unwrap();
@@ -397,7 +397,7 @@ mod test {
     assert_eq!(mu.end, 0);
   }
 
-  // NOTE: match_character_kleene_doesnt_exist cannot miss
+  // NOTE: match_first_character_kleene_doesnt_exist cannot miss
 
   #[test]
   fn match_all_character_kleene_exists() {
@@ -430,7 +430,7 @@ mod test {
   // NOTE: match_all_character_kleene_doesnt_exist cannot miss
 
   #[test]
-  fn match_sequence_and_kleene() {
+  fn match_first_sequence_and_kleene() {
     let r = RegEx::new("abc*");
     let m = r.match_first(String::from("abccc"));
     assert!(m.is_some());
@@ -442,7 +442,7 @@ mod test {
   }
 
   #[test]
-  fn miss_sequence_and_kleene() {
+  fn miss_first_sequence_and_kleene() {
     let r = RegEx::new("abc*");
     let m = r.match_first(String::from("def"));
     assert!(m.is_none());
@@ -471,7 +471,7 @@ mod test {
   }
 
   #[test]
-  fn match_kleene_within_union() {
+  fn match_first_kleene_within_union() {
     let r = RegEx::new("abc|a*");
     let m = r.match_first(String::from("aaaaabc"));
     assert!(m.is_some());
@@ -482,7 +482,7 @@ mod test {
     assert_eq!(mu.end, 5);
   }
 
-  // NOTE: match_kleene_within_union cannot miss
+  // NOTE: match_first_kleene_within_union cannot miss
 
   #[test]
   fn match_all_kleene_within_union() {
@@ -504,4 +504,125 @@ mod test {
   }
 
   // NOTE: match_all_kleene_within_union cannot miss
+
+  #[test]
+  fn match_first_character_kleene_plus() {
+    let r = RegEx::new("a+");
+    let m = r.match_first(String::from("aa"));
+    assert!(m.is_some());
+
+    let mu = m.unwrap();
+
+    assert_eq!(mu.start, 0);
+    assert_eq!(mu.end, 2);
+  }
+
+  #[test]
+  fn miss_first_character_kleene_plus() {
+    let r = RegEx::new("a+");
+    let m = r.match_first(String::from("b"));
+    assert!(m.is_none());
+  }
+
+  #[test]
+  fn match_all_character_kleene_plus() {
+    let r = RegEx::new("a+");
+    let m = r.match_all(String::from("abaabaaa"));
+
+    assert_eq!(m.len(), 3);
+
+    assert_eq!(m[0].start, 0);
+    assert_eq!(m[0].end, 1);
+    assert_eq!(m[1].start, 2);
+    assert_eq!(m[1].end, 4);
+    assert_eq!(m[2].start, 5);
+    assert_eq!(m[2].end, 8);
+  }
+
+  #[test]
+  fn miss_all_character_kleene_plus() {
+    let r = RegEx::new("a+");
+    let m = r.match_all(String::from("bbbb"));
+    assert_eq!(m.len(), 0);
+  }
+
+  #[test]
+  fn match_first_character_kleene_question() {
+    let r = RegEx::new("a?");
+    let m = r.match_first(String::from("aa"));
+    assert!(m.is_some());
+
+    let mu = m.unwrap();
+
+    assert_eq!(mu.start, 0);
+    assert_eq!(mu.end, 1);
+  }
+
+  // NOTE: match_first_character_kleene_question cannot miss
+
+  #[test]
+  fn match_all_character_kleene_question() {
+    let r = RegEx::new("a?");
+    let m = r.match_all(String::from("abaa"));
+
+    assert_eq!(m.len(), 5);
+
+    assert_eq!(m[0].start, 0);
+    assert_eq!(m[0].end, 1);
+    assert_eq!(m[1].start, 1);
+    assert_eq!(m[1].end, 1);
+    assert_eq!(m[2].start, 2);
+    assert_eq!(m[2].end, 3);
+    assert_eq!(m[3].start, 3);
+    assert_eq!(m[3].end, 4);
+    assert_eq!(m[4].start, 4);
+    assert_eq!(m[4].end, 4);
+  }
+
+  // NOTE: match_all_character_kleene_question cannot miss
+
+  #[test]
+  fn match_first_kleene_of_sequence_union() {
+    let r = RegEx::new("(abc|xyz)*");
+    let m = r.match_first(String::from("abcxyzbb"));
+    assert!(m.is_some());
+
+    let mu = m.unwrap();
+
+    assert_eq!(mu.start, 0);
+    assert_eq!(mu.end, 6);
+  }
+
+  // NOTE: match_first_kleene_of_sequence_union cannot miss
+
+  #[test]
+  fn match_all_kleene_of_sequence_union() {
+    let r = RegEx::new("(abc|xyz)*");
+    let m = r.match_all(String::from("babcxyzbxyz"));
+
+    assert_eq!(m.len(), 5);
+
+    assert_eq!(m[0].start, 0);
+    assert_eq!(m[0].end, 0);
+    assert_eq!(m[1].start, 1);
+    assert_eq!(m[1].end, 7);
+    assert_eq!(m[2].start, 7);
+    assert_eq!(m[2].end, 7);
+    assert_eq!(m[3].start, 8);
+    assert_eq!(m[3].end, 11);
+    assert_eq!(m[4].start, 11);
+    assert_eq!(m[4].end, 11);
+  }
+
+  #[test]
+  fn match_first_escaped_sequence() {
+    let r = RegEx::new("\\(a\\|b\\)\\*");
+    let m = r.match_first(String::from("__(a|b)*__"));
+    assert!(m.is_some());
+
+    let mu = m.unwrap();
+
+    assert_eq!(mu.start, 2);
+    assert_eq!(mu.end, 8);
+  }
 }
