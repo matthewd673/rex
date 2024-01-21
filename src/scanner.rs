@@ -367,6 +367,7 @@ impl Scanner {
       '.' => Token {
         t_type: TokenType::Range,
         image: c,
+        // TODO: in Perl this exludes '\n' by default
         range: vec![CharRange::new(0x0000, 0xFFFF, false)],
       },
       '\\' => self.handle_escape(),
@@ -416,10 +417,201 @@ mod tests {
                      vec![TokenType::Character,
                           TokenType::Character,
                           TokenType::Character,
-                          TokenType::EOF]
-                          );
+                          TokenType::EOF]);
     test_token_images(&tokens,
-                      vec!['a', 'b', 'c', '\0']
-                      );
+                      vec!['a', 'b', 'c', '\0']);
+  }
+
+  #[test]
+  fn scan_escaped_backslash() {
+    let mut s = Scanner::new(&String::from("\\\\"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['\\', '\0']);
+  }
+
+  #[test]
+  fn scan_escapes_in_sequence() {
+    let mut s = Scanner::new(&String::from("\\\\\\t"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Character,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['\\', '\t', '\0']);
+  }
+
+  #[test]
+  fn scan_unicode_escape() {
+    let mut s = Scanner::new(&String::from("\\u2603"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['\u{2603}', '\0']);
+  }
+
+  #[test]
+  fn scan_common_escapes() {
+    let mut s = Scanner::new(&String::from("\\t\\n\\v\\f\\r"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['\t', '\n', '\x0b', '\x0c', '\r', '\0']);
+  }
+
+  #[test]
+  fn scan_ascii_digit_escapes() {
+    let mut s = Scanner::new(&String::from("\\97\\0\\32a"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                      vec![TokenType::Character,
+                           TokenType::Character,
+                           TokenType::Character,
+                           TokenType::Character,
+                           TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['a', '\0', ' ', 'a', '\0']);
+  }
+
+  #[test]
+  fn scan_ascii_hex_escapes() {
+    let mut s = Scanner::new(&String::from("\\x61\\x0a\\x00a"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['a', '\n', '\0', 'a', '\0']);
+  }
+
+  #[test]
+  fn scan_invalid_ascii_hex_escape() {
+    let mut s = Scanner::new(&String::from("\\xj"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Character,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['\0', 'j', '\0']);
+  }
+
+  fn scan_escaped_reserved_characters() {
+    let mut s = Scanner::new(&String::from("\\|\\*\\(\\)\\[\\]\\^\\?\\+"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character,
+                          TokenType::Character]);
+    test_token_images(&tokens,
+                      vec!['|', '*', '(', ')', '[', ']', '^', '?', '+', '\0']);
+  }
+
+  #[test]
+  fn scan_union() {
+    let mut s = Scanner::new(&String::from("a|"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Union,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['a', '|', '\0']);
+  }
+
+  #[test]
+  fn scan_star() {
+    let mut s = Scanner::new(&String::from("a*"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Star,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['a', '*', '\0']);
+  }
+
+  #[test]
+  fn scan_parens() {
+    let mut s = Scanner::new(&String::from("(a)"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::LParen,
+                          TokenType::Character,
+                          TokenType::RParen,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['(', 'a', ')', '\0']);
+  }
+
+  #[test]
+  fn scan_brackets_with_caret() {
+    let mut s = Scanner::new(&String::from("[^a]"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::LBracket,
+                          TokenType::Caret,
+                          TokenType::Character,
+                          TokenType::RBracket,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['[', '^', 'a', ']', '\0']);
+  }
+
+  #[test]
+  fn scan_question() {
+    let mut s = Scanner::new(&String::from("a?"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Question,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['a', '?', '\0']);
+  }
+
+  #[test]
+  fn scan_plus() {
+    let mut s = Scanner::new(&String::from("a+"));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Character,
+                          TokenType::Plus,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['a', '+', '\0']);
+  }
+
+  #[test]
+  fn scan_wildcard() {
+    let mut s = Scanner::new(&String::from("."));
+    let tokens = scan_all(&mut s);
+    test_token_types(&tokens,
+                     vec![TokenType::Range,
+                          TokenType::EOF]);
+    test_token_images(&tokens,
+                      vec!['.', '\0']);
   }
 }
